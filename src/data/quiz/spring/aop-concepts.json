@@ -1,0 +1,66 @@
+{
+  "topicId": "aop-concepts",
+  "quizzes": [
+    {
+      "id": "q-ao-01",
+      "topicId": "aop-concepts",
+      "kind": "single",
+      "question": "「@Pointcut(\"execution(* com.example.service..*.*(..))\")」这行代码筛选的是什么？",
+      "options": {
+        "A": "JoinPoint：所有连接点",
+        "B": "Pointcut：切点，限定通知只作用于 service 包（含子包）下所有类的任意方法",
+        "C": "Advice：定义了通知的执行时机",
+        "D": "Aspect：声明这个类是切面"
+      },
+      "answer": "B",
+      "explanation": "切点表达式是筛选条件，作用是从海量连接点里挑出「service 包及子包下、任意类、任意方法」。A 混淆了「候选集合」与「筛选规则」；C 的执行时机由 @Before/@Around 决定；D 由 @Aspect 声明。",
+      "optionExplanations": {
+        "A": "连接点是候选全集，切点只是筛子。",
+        "B": "正确：切点 = 筛选条件的声明。",
+        "C": "时机由通知类型决定，与表达式无关。",
+        "D": "切面由 @Aspect 标注在类上。"
+      },
+      "designWhy": "六件套术语里最容易混的就是 JoinPoint 与 Pointcut，用一行真实表达式逼你区分「候选」与「筛选」。",
+      "relatedTopicIds": ["pointcut-expressions"]
+    },
+    {
+      "id": "q-ao-02",
+      "topicId": "aop-concepts",
+      "kind": "judge",
+      "question": "Spring AOP 通过在编译期修改目标类的字节码来织入切面逻辑。",
+      "answer": false,
+      "explanation": "Spring AOP 是运行时动态代理：容器把目标对象包成代理返回，调用方拿到的其实是代理。编译期/类加载期织入字节码的是 AspectJ。这个区别决定了 Spring AOP 只能拦 Spring Bean 的外部方法调用。",
+      "optionExplanations": {
+        "true": "把 Spring AOP 和 AspectJ 混为一谈了——后者才是字节码织入。",
+        "false": "正确：运行时代理，不改字节码。"
+      },
+      "designWhy": "「代理 vs 字节码织入」是 Spring AOP 与 AspectJ 的分水岭，也是理解自调用失效、final 方法失效等一切边界问题的钥匙。",
+      "relatedTopicIds": ["jdk-cglib-proxy"]
+    },
+    {
+      "id": "q-ao-03",
+      "topicId": "aop-concepts",
+      "kind": "code-reading",
+      "codePath": "SelfInvocationDemo.java",
+      "language": "java",
+      "code": "@Service\npublic class SelfInvocationDemo {\n\n    public void outer() {\n        System.out.println(\"outer start\");\n        this.inner();\n        System.out.println(\"outer end\");\n    }\n\n    @Monitored\n    public void inner() {\n        System.out.println(\"inner\");\n    }\n}\n\n// 调用方：\n// ctx.getBean(SelfInvocationDemo.class).outer();",
+      "question": "@Monitored 是一个记录方法调用的切面注解。执行 outer() 时，inner 上的切面会生效吗？输出是什么？",
+      "options": {
+        "A": "生效；输出 outer start / [monitored] inner / inner / outer end",
+        "B": "不生效；输出 outer start / inner / outer end——this.inner() 是对象自调用，绕过了代理",
+        "C": "生效；因为 inner 是 public 方法",
+        "D": "不生效；因为 outer 上没有 @Monitored"
+      },
+      "answer": "B",
+      "explanation": "容器里的 SelfInvocationDemo 引用是代理对象，但 outer 方法体内部的 this 指向的是**原始对象**，this.inner() 没有经过代理，切面自然失效。经典解法：自注入自身代理、AopContext.currentProxy()，或把 inner 拆到另一个 Bean。这正是 @Transactional 自调用失效的同款问题。",
+      "optionExplanations": {
+        "A": "如果生效就不会成为经典面试题了——this 不走代理是硬边界。",
+        "B": "正确，内部调用 = 原始对象调用 = 无切面。",
+        "C": "public 与否不改变「没走代理」这个事实。",
+        "D": "失效与 outer 有没有注解无关，根因是 this 调用路径。"
+      },
+      "designWhy": "自调用失效是 AOP 理解程度的试金石，也是 @Transactional 失效场景第一名；用最小代码复现，让你以后一眼认出这个结构。",
+      "relatedTopicIds": ["jdk-cglib-proxy", "aop-advice-types"]
+    }
+  ]
+}

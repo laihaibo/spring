@@ -1,0 +1,35 @@
+{
+  "id": "aop-advice-types",
+  "track": "spring",
+  "level": 1,
+  "title": "五种通知：@Around 为什么是全能王",
+  "brief": "Before / After / AfterReturning / AfterThrowing / Around 的分工、执行顺序与真实用途。",
+  "explanation": "## 五种通知的分工\n\n- **@Before**：方法执行前（前置检查、权限校验）\n- **@After**：方法执行后，**无论成败都执行**（finally 语义：释放资源）\n- **@AfterReturning**：正常返回后（能拿到返回值，加工/审计）\n- **@AfterThrowing**：抛异常后（异常上报、告警）\n- **@Around**：全程包裹，`ProceedingJoinPoint.proceed()` 前后自由控制——能改入参、改返回值、吞异常、不调 proceed 甚至让方法不执行。**计时/限流/缓存/事务都在这里做**\n\n```java path=AllAdviceAspect.java\n@Around(\"serviceLayer()\")\npublic Object around(ProceedingJoinPoint pjp) throws Throwable {\n    long start = System.nanoTime();\n    try {\n        Object result = pjp.proceed();      // 目标方法在这执行\n        System.out.println(\"成功, 返回 \" + result);\n        return result;\n    } finally {\n        System.out.println(\"耗时 \" + (System.nanoTime() - start) / 1_000_000 + \"ms\");\n    }\n}\n```\n\n## 单切面的执行顺序（Spring 5.3+，能背下来）\n\n正常流程：**Around前段 → @Before → 目标方法 → Around后段 → @After → @AfterReturning**\n\n异常流程：Around前段 → @Before → 目标方法抛异常 → Around后段（finally）→ @After → @AfterThrowing\n\n记忆锚点：**@After 永远在 AfterReturning/AfterThrowing 之前**（finally 先于结果处理）；@Around 把一切包在中间。\n\n## 多切面排序\n\n多个切面命中同一个方法时，用 `@Order(n)` 控制：数字越小越靠外层（先进后出，像洋葱）。事务切面 @Order 默认最低优先级 Integer.MAX_VALUE，即最内层——业务切面通常希望在外面看到事务是否成功，所以监控/日志切面要设更小的 Order。",
+  "analogy": "把一次方法调用想象成一趟跨城快递。@Before = 出库扫描（没贴标签直接拒收）；@Around = 全程押运员（出发前称重、路上可改道、到达可签收或拒收，全权在握——所以计时、限流、缓存都归他管）；@After = 无论派送成功与否都会打的「行程结束」通知；@AfterReturning = 签收回执（顺利送达才出现，还能看到签收人）；@AfterThrowing = 货损理赔专员（只有出事才登场）。顺序上：行程结束通知（@After）永远先于签收/理赔的结果通知。",
+  "codeExamples": [
+    {
+      "id": "advice-all-five",
+      "filePath": "src/main/java/com/example/aspect/OrderAspect.java",
+      "language": "java",
+      "runnableFileName": "OrderAspect.java",
+      "summary": "五种通知各打一行日志，运行后输出顺序与讲解中的顺序图完全对应，跑一遍就记住。",
+      "code": "package com.example.aspect;\n\nimport org.aspectj.lang.JoinPoint;\nimport org.aspectj.lang.ProceedingJoinPoint;\nimport org.aspectj.lang.annotation.After;\nimport org.aspectj.lang.annotation.AfterReturning;\nimport org.aspectj.lang.annotation.AfterThrowing;\nimport org.aspectj.lang.annotation.Around;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Before;\nimport org.aspectj.lang.annotation.Pointcut;\nimport org.springframework.stereotype.Component;\n\n@Aspect\n@Component\npublic class OrderAspect {\n\n    @Pointcut(\"execution(* com.example.service.GreetService.*(..))\")\n    public void greet() {\n    }\n\n    @Around(\"greet()\")\n    public Object around(ProceedingJoinPoint pjp) throws Throwable {\n        System.out.println(\"1 Around: 前段\");\n        try {\n            Object result = pjp.proceed();\n            System.out.println(\"4 Around: 后段, 返回值=\" + result);\n            return result;\n        } finally {\n            System.out.println(\"4.5 Around: finally\");\n        }\n    }\n\n    @Before(\"greet()\")\n    public void before(JoinPoint jp) {\n        System.out.println(\"2 Before: \" + jp.getSignature().getName());\n    }\n\n    @After(\"greet()\")\n    public void after() {\n        System.out.println(\"5 After: 无论成败都执行\");\n    }\n\n    @AfterReturning(\"greet()\")\n    public void afterReturning() {\n        System.out.println(\"6 AfterReturning: 正常返回后\");\n    }\n\n    @AfterThrowing(\"greet()\")\n    public void afterThrowing() {\n        System.out.println(\"6': AfterThrowing: 抛异常后\");\n    }\n}\n// 正常执行输出顺序：1 → 2 → 目标方法 → 4 → 4.5 → 5 → 6"
+    },
+    {
+      "id": "advice-around-control",
+      "filePath": "src/main/java/com/example/aspect/RateLimitAspect.java",
+      "language": "java",
+      "runnableFileName": "RateLimitAspect.java",
+      "summary": "Around 的真实权力：不调 proceed 就能让方法不执行——一个 20 行的简易限流切面。",
+      "code": "package com.example.aspect;\n\nimport java.util.concurrent.atomic.AtomicInteger;\nimport org.aspectj.lang.ProceedingJoinPoint;\nimport org.aspectj.lang.annotation.Around;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.springframework.stereotype.Component;\n\n@Aspect\n@Component\npublic class RateLimitAspect {\n\n    private final AtomicInteger counter = new AtomicInteger(0);\n    private static final int MAX_CALLS = 3;\n\n    @Around(\"execution(* com.example.service.HeavyService.work())\")\n    public Object limit(ProceedingJoinPoint pjp) throws Throwable {\n        if (counter.incrementAndGet() > MAX_CALLS) {\n            // 不调用 proceed()，目标方法根本不执行——这就是 Around 的权力\n            return \"限流: 请求过多\";\n        }\n        return pjp.proceed();\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「@AfterReturning 在 @After 之前执行」——反了：@After（finally 语义）永远先于 AfterReturning/AfterThrowing。",
+    "「@Around 里忘写 proceed() 只是少个返回值」——目标方法根本不会执行，业务逻辑被静默跳过，这是 Around 最危险也最强大的地方。",
+    "「AfterThrowing 能把异常处理掉让流程继续」——它只是观察者；不重新抛出时异常照样向上传播，吞异常改写流程只有 @Around 做得到。",
+    "「多个切面的执行顺序是随机的」——由 @Order/Ordered 决定：值小的在外层，围绕目标形成洋葱结构。"
+  ],
+  "tags": ["AOP", "通知", "执行顺序", "Around"],
+  "prereq": ["aop-concepts", "jdk-cglib-proxy"]
+}

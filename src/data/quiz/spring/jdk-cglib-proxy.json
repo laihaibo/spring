@@ -1,0 +1,74 @@
+{
+  "topicId": "jdk-cglib-proxy",
+  "quizzes": [
+    {
+      "id": "q-pr-01",
+      "topicId": "jdk-cglib-proxy",
+      "kind": "single",
+      "question": "CGLIB 代理的工作原理，最准确的描述是？",
+      "options": {
+        "A": "为目标类生成一个子类，覆写方法并在其中插入拦截逻辑",
+        "B": "反射直接调用目标方法，在调用前后执行钩子",
+        "C": "修改目标类的字节码，把拦截逻辑写进原类",
+        "D": "实现与目标相同的接口生成代理类"
+      },
+      "answer": "A",
+      "explanation": "CGLIB 的本质是子类化（Enhancer + setSuperclass），覆写能覆写的方法（非 final/private/static）。B 是所有代理的共性表象；C 是 AspectJ 的做法；D 是 JDK 动态代理的原理。",
+      "optionExplanations": {
+        "A": "正确：子类覆写 + MethodInterceptor。",
+        "B": "反射调用是手段之一，不是「CGLIB 的定义」。",
+        "C": "Spring AOP 从不改字节码。",
+        "D": "这正是 JDK 动态代理的原理，别与 CGLIB 混淆。"
+      },
+      "designWhy": "JDK 与 CGLIB 的原理各用一句话钉死，四个选项恰好是「子类代理/反射表象/字节码织入/接口代理」四个易混概念，一次辨析清楚。",
+      "relatedTopicIds": [
+        "aop-concepts"
+      ]
+    },
+    {
+      "id": "q-pr-02",
+      "topicId": "jdk-cglib-proxy",
+      "kind": "judge",
+      "question": "Spring Boot 2.x 之后，即使目标 Bean 实现了接口，默认也使用 CGLIB 生成代理。",
+      "answer": true,
+      "explanation": "spring.aop.proxy-target-class 默认 true，统一 CGLIB。好处：注入时可以直接用具体类型而不必面向接口，避免 JDK 代理（接口型）注入具体类时的 ClassCastException。",
+      "optionExplanations": {
+        "true": "正确，这是 Boot 2.x 的行为变更，老教材「有接口用 JDK」的说法在 Boot 里已过时。",
+        "false": "Spring Framework 裸用时的传统默认才是「有接口走 JDK」。"
+      },
+      "designWhy": "大量老教程仍在传播「有接口 = JDK 代理」，这是一道专门纠偏的判断题，答案以 Spring Boot 2.x+ 的真实默认为准。",
+      "relatedTopicIds": [
+        "bean-registration"
+      ]
+    },
+    {
+      "id": "q-pr-03",
+      "topicId": "jdk-cglib-proxy",
+      "kind": "multiple",
+      "question": "一个类被 CGLIB 代理后，以下哪些方法调用【不会】被拦截增强？（多选）",
+      "options": {
+        "A": "public 的普通方法",
+        "B": "final 修饰的方法",
+        "C": "private 方法",
+        "D": "方法内部通过 this 调用的另一个 public 方法"
+      },
+      "explanation": "final 方法无法被子类覆写（CGLIB 是子类代理）；private 对子类不可见；this 调用发生在原始对象内部，不经过代理。三者都绕开了「覆写插入拦截」的机制。",
+      "optionExplanations": {
+        "A": "public 普通方法正是 CGLIB 覆写增强的对象。",
+        "B": "final 不可覆写，CGLIB 直接放弃。",
+        "C": "private 方法对外部（包括子类）不可见。",
+        "D": "this 是原始对象，调用链没走代理。"
+      },
+      "designWhy": "把 CGLIB 的三大失效边界（final / private / 自调用）合并成一题，答对多选说明边界模型完整，而不是只知道其中一条。",
+      "relatedTopicIds": [
+        "aop-concepts",
+        "aop-advice-types"
+      ],
+      "answers": [
+        "B",
+        "C",
+        "D"
+      ]
+    }
+  ]
+}

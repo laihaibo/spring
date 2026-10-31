@@ -1,0 +1,35 @@
+{
+  "id": "bean-lifecycle",
+  "track": "spring",
+  "level": 1,
+  "title": "Bean 生命周期：从实例化到销毁的完整旅程",
+  "brief": "构造 → 注入 → Aware → 后置处理器 → 初始化 → 使用 → 销毁，以及 AOP 代理藏在哪一环。",
+  "explanation": "## 主线流程（记住这七步）\n\n1. **实例化**：调用构造器（或工厂方法）创建原始对象\n2. **属性填充**：容器把依赖注入进来（@Autowired 在这一步生效）\n3. **Aware 回调**：BeanNameAware、ApplicationContextAware 等，把容器内部构件递给你\n4. **BeanPostProcessor#postProcessBeforeInitialization**\n5. **初始化**：`@PostConstruct` → `InitializingBean#afterPropertiesSet` → `init-method`（按此顺序）\n6. **BeanPostProcessor#postProcessAfterInitialization**——**AOP 代理在这一步把原始对象包成代理**返回给容器\n7. **使用中……销毁**：容器关闭时 `@PreDestroy` → `DisposableBean#destroy` → `destroy-method`\n\n```java path=LifecycleBean.java\n@Component\npublic class LifecycleBean implements BeanNameAware {\n    @Autowired\n    private Clock clock;               // 第2步注入\n\n    public LifecycleBean() {\n        System.out.println(\"1 构造器: clock == null ? \" + (clock == null));\n    }\n\n    @Override\n    public void setBeanName(String name) {\n        System.out.println(\"3 Aware: 我的名字是 \" + name);\n    }\n\n    @PostConstruct\n    public void init() {\n        System.out.println(\"5 初始化: clock 已注入 = \" + (clock != null));\n    }\n\n    @PreDestroy\n    public void shutdown() {\n        System.out.println(\"7 销毁前的清理\");\n    }\n}\n```\n\n## 两个关键推论\n\n- **@PostConstruct 一定晚于依赖注入**：初始化回调发生在属性填充之后，所以 init 里可以放心使用注入的依赖。这也是为什么「初始化逻辑写在 @PostConstruct 而不是构造器」是铁律——构造器执行时依赖还没进来（打印的 1 里 clock 是 null）。\n- **你拿到的 Bean 可能是代理**：第 6 步的后置处理器是 AOP 的织入点，@Transactional 的事务代理就诞生在这里（呼应 [[jdk-cglib-proxy]]）。\n\n## 生命周期有什么用\n\n@PostConstruct 里做预热（加载缓存/连接池检查）；@PreDestroy 里释放资源（关连接、刷缓冲）；自定义 BeanPostProcessor 就是给全容器 Bean 加料的钩子（日志、审计、代理……Spring 自己也重度依赖它）。",
+  "analogy": "Bean 的生命周期就是新员工入职：发 offer 写明岗位（Bean 定义）→ 签合同建工牌（实例化）→ 分配工位电脑、开通内部系统权限（属性填充/依赖注入）→ 带着工牌认识各部门（Aware 回调）→ 入职培训（BeanPostProcessor 前置处理）→ 转正述职、正式领任务（@PostConstruct 初始化）→ 给他配一个「对外的职业形象」（BeanPostProcessor 后置：AOP 代理）→ 上班干活 → 离职交接、注销工牌（@PreDestroy）。注意：述职前必须先领到电脑——依赖没注入完，初始化不可能开始。",
+  "codeExamples": [
+    {
+      "id": "lifecycle-full",
+      "filePath": "src/main/java/com/example/lifecycle/LifecycleDemo.java",
+      "language": "java",
+      "runnableFileName": "LifecycleDemo.java",
+      "summary": "把生命周期回调全部打上日志：构造器里依赖还是 null，@PostConstruct 里已就绪——顺序一目了然。",
+      "code": "package com.example.lifecycle;\n\nimport jakarta.annotation.PostConstruct;\nimport jakarta.annotation.PreDestroy;\nimport org.springframework.beans.factory.BeanNameAware;\nimport org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class LifecycleDemo implements BeanNameAware {\n\n    @Autowired\n    private CacheWarmer warmer; // 第2步才会注入\n\n    public LifecycleDemo() {\n        // 第1步：构造器执行时，依赖注入还没发生！\n        System.out.println(\"[1] 构造器: warmer == null ? \" + (warmer == null));\n    }\n\n    @Override\n    public void setBeanName(String name) {\n        System.out.println(\"[3] BeanNameAware: 我是 \" + name);\n    }\n\n    @PostConstruct\n    public void init() {\n        // 第5步：依赖已注入完毕，可以放心使用\n        System.out.println(\"[5] @PostConstruct: warmer = \" + warmer); \n        warmer.warm();\n    }\n\n    @PreDestroy\n    public void cleanup() {\n        System.out.println(\"[7] @PreDestroy: 释放资源\");\n    }\n}\n\nclass CacheWarmer {\n    void warm() {\n        System.out.println(\"[5.1] 预热缓存完成\");\n    }\n}"
+    },
+    {
+      "id": "lifecycle-init-order",
+      "filePath": "src/main/java/com/example/lifecycle/InitOrderDemo.java",
+      "language": "java",
+      "runnableFileName": "InitOrderDemo.java",
+      "summary": "三种初始化回调的执行顺序：@PostConstruct 先于 InitializingBean 先于 init-method。",
+      "code": "package com.example.lifecycle;\n\nimport jakarta.annotation.PostConstruct;\nimport org.springframework.beans.factory.InitializingBean;\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\n\n@Configuration\npublic class InitOrderDemo {\n\n    @Bean(initMethod = \"customInit\")\n    public OrderedBean orderedBean() {\n        return new OrderedBean();\n    }\n}\n\nclass OrderedBean implements InitializingBean {\n\n    @PostConstruct\n    public void annotationInit() {\n        System.out.println(\"顺序1: @PostConstruct\");\n    }\n\n    @Override\n    public void afterPropertiesSet() {\n        System.out.println(\"顺序2: InitializingBean.afterPropertiesSet\");\n    }\n\n    public void customInit() {\n        System.out.println(\"顺序3: init-method 指定的 customInit\");\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「@PostConstruct 在构造器执行后立即运行」——中间还隔着属性填充与 Aware 回调；构造器里依赖是 null，@PostConstruct 里才可用。",
+    "「在构造器里使用注入的依赖没问题」——构造器执行时依赖还没注入，直接 NPE；构造器只能存参数，初始化逻辑放 @PostConstruct。",
+    "「Bean 销毁回调一定会执行」——只有 singleton 随容器关闭触发；prototype Bean 创建后容器就撒手不管，销毁回调不会调用。",
+    "「AOP 代理在构造器阶段就生成」——代理由 BeanPostProcessor 在初始化后的后置处理阶段包装，原始对象先完整走完创建流程。"
+  ],
+  "tags": ["生命周期", "PostConstruct", "BeanPostProcessor"],
+  "prereq": ["bean-registration"]
+}

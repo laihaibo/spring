@@ -1,0 +1,66 @@
+{
+  "topicId": "aop-advice-types",
+  "quizzes": [
+    {
+      "id": "q-ad-01",
+      "topicId": "aop-advice-types",
+      "kind": "single",
+      "question": "单个切面内五种通知全部命中同一方法，方法正常返回。执行顺序正确的是？（Spring 5.3+）",
+      "options": {
+        "A": "@Before → 目标方法 → @Around后段 → @After → @AfterReturning",
+        "B": "@Around前段 → @Before → 目标方法 → @After → @AfterReturning → @Around后段",
+        "C": "@Around前段 → @Before → 目标方法 → @Around后段 → @After → @AfterReturning",
+        "D": "@Before → @Around前段 → 目标方法 → @AfterReturning → @After → @Around后段"
+      },
+      "answer": "C",
+      "explanation": "顺序口诀：Around 前段最先，然后 Before，目标方法，Around 后段（含 finally），然后 @After（finally 语义），最后 AfterReturning/AfterThrowing。B 把 Around 后段放到了最后——proceed() 返回后代码继续在 around 方法体内执行，不可能等到 AfterReturning 之后再回来。",
+      "optionExplanations": {
+        "A": "Around 前段去哪了？proceed 之前的部分一定最先执行。",
+        "B": "Around 后段被放最后是常见误解：proceed() 一返回，后段立即执行，早于 @After。",
+        "C": "正确，与 Spring 5.3+ 实际行为一致。",
+        "D": "Before 永远在 Around 前段之后（外层先走）。"
+      },
+      "designWhy": "通知顺序是面试超高频题。四个选项都是真实记忆混淆的形态，做对这道题需要对「proceed() 之后的代码在方法体内继续执行」有真正的过程式理解，而不是背图。",
+      "relatedTopicIds": ["jdk-cglib-proxy"]
+    },
+    {
+      "id": "q-ad-02",
+      "topicId": "aop-advice-types",
+      "kind": "judge",
+      "question": "@AfterThrowing 捕获到目标方法抛出的异常后，可以选择吞掉异常让调用方继续执行。",
+      "answer": false,
+      "explanation": "@AfterThrowing 只是异常的旁观者，拿到的引用改不了调用链——异常照常向上传播。要在异常后继续（或转换异常类型）只有 @Around 做得到：catch 住 proceed() 的异常后自行处理。",
+      "optionExplanations": {
+        "true": "混淆了 @AfterThrowing 与 @Around 的能力边界。",
+        "false": "正确：观察者无权改变流程。"
+      },
+      "designWhy": "「谁能改写流程」是五种通知的核心分野：只有 Around 拿着 proceed() 的方向盘。这一认知直接决定限流/熔断/异常翻译只能写在 Around 里。",
+      "relatedTopicIds": ["aop-concepts"]
+    },
+    {
+      "id": "q-ad-03",
+      "topicId": "aop-advice-types",
+      "kind": "code-reading",
+      "codePath": "AroundPitfall.java",
+      "language": "java",
+      "code": "@Aspect\n@Component\npublic class CacheAspect {\n\n    private final Map<String, Object> cache = new HashMap<>();\n\n    @Around(\"execution(* com.example.service.PriceService.getPrice(..))\")\n    public Object cached(ProceedingJoinPoint pjp) throws Throwable {\n        String key = pjp.getSignature().toShortString();\n        if (cache.containsKey(key)) {\n            return cache.get(key);\n        }\n        Object value = pjp.proceed();\n        cache.put(key, value);\n        return value;\n    }\n}\n\n@Service\npublic class PriceService {\n    public long getPrice(String sku) {\n        System.out.println(\"真实查询执行了\");\n        return 9900L;\n    }\n}\n\n// 依次调用：getPrice(\"A\")、getPrice(\"A\")、getPrice(\"B\")",
+      "question": "三次调用后控制台输出什么？这个简易缓存依赖了哪种通知的什么能力？",
+      "options": {
+        "A": "「真实查询执行了」打印 2 次（A、B 各一次）；依赖 Around 不调 proceed 即可短路执行的能力",
+        "B": "打印 3 次；缓存逻辑有误根本没生效",
+        "C": "打印 1 次；说明 @Before 也能实现缓存",
+        "D": "打印 0 次；proceed() 自动缓存了结果"
+      },
+      "answer": "A",
+      "explanation": "第一次 getPrice(\"A\")：缓存未命中，proceed() 执行真实查询并写入缓存；第二次 getPrice(\"A\")：命中，直接 return，**不调 proceed**，真实方法被跳过；第三次 getPrice(\"B\")：key 不同未命中，再查一次。共 2 次真实执行。缓存/限流/熔断的本质都是「Around 有权不 proceed」。",
+      "optionExplanations": {
+        "A": "正确：命中即短路，Around 独有的控制权。",
+        "B": "逻辑没问题，key 是 toShortString() 能区分 A 和 B。",
+        "C": "Before 在方法执行前没有「取消执行」的权力（改不了流程）。",
+        "D": "proceed() 就是执行目标方法本身，没有自动缓存。"
+      },
+      "designWhy": "用 20 行缓存代码证明「Around 是全能王」不是口诀而是机制：握有 proceed() 调用权 = 握有方法执行权。这也是缓存、限流、熔断组件都基于 Around 实现的原因。",
+      "relatedTopicIds": ["pointcut-expressions", "aop-concepts"]
+    }
+  ]
+}

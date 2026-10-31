@@ -1,0 +1,72 @@
+{
+  "topicId": "pointcut-expressions",
+  "quizzes": [
+    {
+      "id": "q-pe-01",
+      "topicId": "pointcut-expressions",
+      "kind": "single",
+      "question": "表达式 execution(* com.example.service..*.delete*(..)) 匹配的是？",
+      "options": {
+        "A": "service 包（不含子包）下以 delete 开头的无参方法",
+        "B": "service 包及其任意深度子包下，任意类中所有以 delete 开头、参数不限的方法",
+        "C": "service 包下名为 delete 的方法，参数任意",
+        "D": "任何包下所有 delete 方法"
+      },
+      "answer": "B",
+      "explanation": "逐段拆解：* = 任意返回类型；com.example.service..* = service 包及其任意深度子包下的任意类（.. 管多层子包）；delete* = 以 delete 开头的任意方法名；( .. ) = 任意参数。A 错在 .. 包含子包、且参数不限；C 错在 delete* 是前缀匹配；D 丢掉了包限定。",
+      "optionExplanations": {
+        "A": ".. 表示包含任意深度子包；(..) 表示参数不限，不是无参。",
+        "B": "正确，四个通配段全部理解到位。",
+        "C": "delete* 是前缀通配，能匹配 deleteAll、deleteById 等。",
+        "D": "包限定 com.example.service.. 是表达式的一部分。"
+      },
+      "designWhy": "execution 通配符是「读得懂切面」的最低门槛。四个选项分别对应 .. 的两种典型误解（丢子包/丢参数），选对说明语法真的拆解过。",
+      "relatedTopicIds": ["aop-concepts"]
+    },
+    {
+      "id": "q-pe-02",
+      "topicId": "pointcut-expressions",
+      "kind": "judge",
+      "question": "@annotation 指示符可以匹配标注在类级别的注解。",
+      "answer": false,
+      "explanation": "@annotation 只匹配**方法级**注解。类/接口上的注解要用 @within（匹配标注了该注解的类里的方法）。自定义注解时还要保证 @Retention(RUNTIME)，否则运行期根本读不到。",
+      "optionExplanations": {
+        "true": "类级注解归 @within/@target 管，@annotation 只认方法上的。",
+        "false": "正确，方法注解与类注解各有专属指示符。"
+      },
+      "designWhy": "@annotation 是业务代码里最常用的切点方式，但「方法级」这个前提和 RUNTIME 保留策略一起构成了两个真实踩坑点。",
+      "relatedTopicIds": ["aop-advice-types"]
+    },
+    {
+      "id": "q-pe-03",
+      "topicId": "pointcut-expressions",
+      "kind": "code-completion",
+      "codePath": "PaymentPointcut.java",
+      "language": "java",
+      "codeTemplate": "@Aspect\n@Component\npublic class PaymentPointcut {\n\n    // 匹配 pay 包及子包下所有类的任意参数方法，任意返回类型\n    @Pointcut(\"execution(__1__ com.example.pay..*.*(__2__))\")\n    public void paymentOps() {\n    }\n\n    // 只增强标注了 @Monitored 的方法（组合切点）\n    @Pointcut(\"paymentOps() && __3__(com.example.monitor.Monitored)\")\n    public void monitoredPayment() {\n    }\n}",
+      "blanks": [
+        {
+          "candidates": ["*", "void", "public *"],
+          "answer": "*"
+        },
+        {
+          "candidates": ["..", "*", "..."],
+          "answer": ".."
+        },
+        {
+          "candidates": ["@annotation", "annotation", "@within"],
+          "answer": "@annotation"
+        }
+      ],
+      "question": "补全切点表达式：任意返回类型写什么？任意参数写什么？匹配方法上的注解用哪个指示符？",
+      "explanation": "任意返回类型是 *；任意个任意类型参数是 ( .. )；方法上的注解匹配是 @annotation(注解全类名)，并用 && 与第一个切点组合。注意 .. 在参数位置表示「任意个参数」，在包位置表示「任意层级子包」。",
+      "optionExplanations": {
+        "空1": "* 通配整体返回类型；void 限定了 void；public * 修饰符可省略且写法多余。",
+        "空2": ".. 是「任意多段」，参数位置即任意参数；* 在参数位置只匹配恰好一个参数。",
+        "空3": "@annotation 带井号；不带井号是错误的指示符；@within 匹配类级注解。"
+      },
+      "designWhy": "execution 的三段式（返回类型/参数/注解组合）各留一个空，填完这题，读任何切点表达式都不会再卡壳——这正是生产代码里排查「切面为什么没生效」的基本功。",
+      "relatedTopicIds": ["aop-advice-types", "aop-concepts"]
+    }
+  ]
+}

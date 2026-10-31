@@ -1,0 +1,35 @@
+{
+  "id": "pointcut-expressions",
+  "track": "spring",
+  "level": 1,
+  "title": "切点表达式：execution 的语法与常用指示符",
+  "brief": "* 和 .. 两个通配符撑起切点匹配：execution 语法拆解 + @annotation 实战首选。",
+  "explanation": "## execution 语法拆解\n\n```\nexecution(修饰符? 返回类型 包名.类名.方法名(参数类型) throws?)\n                 ↑ 必填         ↑ 必填            ↑ 必填\n```\n\n```java path=PointcutSyntax.java\n// service 包及子包下，任意返回类型、任意类、任意方法、任意参数\nexecution(* com.example.service..*.*(..))\n\n// 逐段翻译：\n// *          → 任意返回类型\n// com.example.service..*  → service 及其任意深度子包下的任意类\n// .*         → 任意方法名\n// (..)       → 任意个、任意类型的参数\n```\n\n## 两个通配符的精确含义\n\n- `*`：匹配**一段**——一个包名、一个类名、一个方法名、一个参数类型、或返回类型整体\n- `..`：匹配**任意多段**——多级子包（`service..*`）或任意个参数（`( .. )`）\n\n```java path=MoreExamples.java\nexecution(public * *(..))                    // 所有 public 方法\nexecution(* com.example..*.find*(..))        // 以 find 开头的方法\nexecution(* com.example.service.UserService.save(*))   // 恰好1个参数\nexecution(* com.example.service.UserService.save(*, *)) // 恰好2个参数\n```\n\n## 常用指示符\n\n- `within(包..*)`：限定类型范围（比 execution 简洁，不能看方法签名）\n- `@annotation(注解全名)`：匹配**标注了指定注解的方法**——业务代码里最实用的方式\n- `bean(serviceName)`：按 Bean 名匹配\n- 组合：`&&`（与）、`||`（或）、`!`（非）\n\n```java path=AnnotationPointcut.java\n// 自定义注解 + @annotation：显式声明「我要被切」，比按包名匹配可控得多\n@Target(ElementType.METHOD)\n@Retention(RetentionPolicy.RUNTIME)\npublic @interface LogMarker { }\n\n@Aspect @Component\npublic class LogAspect {\n    @Before(\"@annotation(com.example.aspect.LogMarker)\")\n    public void log(JoinPoint jp) {\n        System.out.println(\"被标记的方法: \" + jp.getSignature().getName());\n    }\n}\n\n// 业务代码：打上注解即生效\n@LogMarker\npublic void exportReport() { }\n```\n\n## 选型建议\n\n纯基础设施（统一异常/计时）→ 按包名 execution；业务语义明确的增强点（审计、审计日志）→ 自定义注解 + @annotation，哪里需要标哪里，重构移动包名也不会失效。",
+  "analogy": "切点表达式就是快递分拣规则。「所有发往华东区、重量 1kg 以内的生鲜件」翻译成 execution 就是：`execution(生鲜 and 1kg以内 and 华东区)`。`*` 是「这一栏随便」（任意发件人），`..` 是「这一栏后面不管多少层都要」（省→市→区全包含）。@annotation 好比商家在包裹上贴了「优先派送」的贴纸——分拣机不管你是谁发的，认贴纸不认人，包裹搬家换仓库（重构换包名）贴纸照样有效。",
+  "codeExamples": [
+    {
+      "id": "pointcut-execution",
+      "filePath": "src/main/java/com/example/aspect/ApiLogAspect.java",
+      "language": "java",
+      "runnableFileName": "ApiLogAspect.java",
+      "summary": "按包名匹配的完整示例：controller 层所有公共方法入参出参统一记录。",
+      "code": "package com.example.aspect;\n\nimport java.util.Arrays;\nimport org.aspectj.lang.JoinPoint;\nimport org.aspectj.lang.annotation.AfterReturning;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Before;\nimport org.aspectj.lang.annotation.Pointcut;\nimport org.springframework.stereotype.Component;\n\n@Aspect\n@Component\npublic class ApiLogAspect {\n\n    /** controller 包及子包下，所有类的所有公共方法，参数不限 */\n    @Pointcut(\"execution(public * com.example.controller..*.*(..))\")\n    public void apiLayer() {\n    }\n\n    @Before(\"apiLayer()\")\n    public void logIn(JoinPoint jp) {\n        System.out.println(\"-> \" + jp.getSignature().toShortString()\n            + \" 入参: \" + Arrays.toString(jp.getArgs()));\n    }\n\n    @AfterReturning(pointcut = \"apiLayer()\", returning = \"result\")\n    public void logOut(JoinPoint jp, Object result) {\n        System.out.println(\"<- \" + jp.getSignature().toShortString()\n            + \" 出参: \" + result);\n    }\n}"
+    },
+    {
+      "id": "pointcut-annotation",
+      "filePath": "src/main/java/com/example/aspect/AuditAspect.java",
+      "language": "java",
+      "runnableFileName": "AuditAspect.java",
+      "summary": "自定义注解 + @annotation：最可控的切点方式，注解打在哪、切面就在哪。",
+      "code": "package com.example.aspect;\n\nimport java.lang.annotation.ElementType;\nimport java.lang.annotation.Retention;\nimport java.lang.annotation.RetentionPolicy;\nimport java.lang.annotation.Target;\nimport java.lang.reflect.Method;\nimport org.aspectj.lang.JoinPoint;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Before;\nimport org.springframework.stereotype.Component;\n\n@Target(ElementType.METHOD)\n@Retention(RetentionPolicy.RUNTIME)\n@interface Audited {\n    String action();\n}\n\n@Aspect\n@Component\npublic class AuditAspect {\n\n    @Before(\"@annotation(com.example.aspect.Audited)\")\n    public void audit(JoinPoint jp) throws NoSuchMethodException {\n        Method method = jp.getTarget().getClass()\n            .getMethod(jp.getSignature().getName());\n        Audited marker = method.getAnnotation(Audited.class);\n        System.out.println(\"[审计] \" + marker.action() + \" -> \"\n            + jp.getSignature().getName());\n    }\n}\n\n// 业务代码：打上注解即被审计，无需改动切面\n// @Audited(action = \"导出报表\")\n// public void exportReport() { }"
+    }
+  ],
+  "misconceptions": [
+    "「.. 只能用于包名」——它同样用于参数匹配：(..) 表示任意个任意类型参数，(*, ..) 表示至少一个参数。",
+    "「execution 里可以匹配参数的具体值」——切点只看**类型签名**不看值；按值过滤要在通知体内用参数绑定。",
+    "「表达式写错只是不生效，不会报错」——拼错指示符/语法在启动创建代理时就抛 IllegalArgumentException，早失败早发现。",
+    "「@annotation 匹配的是类上的注解」——它匹配方法级注解；类级注解要用 @within 或 @target。"
+  ],
+  "tags": ["AOP", "切点表达式", "execution", "annotation"],
+  "prereq": ["aop-concepts"]
+}

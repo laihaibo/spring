@@ -1,0 +1,86 @@
+{
+  "topicId": "bean-registration",
+  "quizzes": [
+    {
+      "id": "q-reg-01",
+      "topicId": "bean-registration",
+      "kind": "single",
+      "question": "你要注册 RestTemplate（第三方库的类）为 Bean 并定制超时时间，最合适的姿势是？",
+      "options": {
+        "A": "在 RestTemplate 的源码上加 @Component",
+        "B": "写一个 @Configuration 类，用 @Bean 方法返回定制好的 RestTemplate",
+        "C": "用 @ComponentScan 强行扫描 RestTemplate 所在的包",
+        "D": "继承 RestTemplate 加 @Service"
+      },
+      "answer": "B",
+      "explanation": "第三方类改不了源码，@Bean 工厂方法是标准做法：创建 + 定制都收敛在一个方法里。C 扫了也没用——RestTemplate 上没有注解，扫不到；A 不可能改库源码；D 无必要继承。",
+      "optionExplanations": {
+        "A": "第三方库源码不可修改，思路本身不成立。",
+        "B": "正确。@Bean 专为「类不是你的」或「需要复杂构造」而生。",
+        "C": "扫描只认 stereotype 注解，RestTemplate 类上什么都没有。",
+        "D": "为注册而继承属于过度设计，还会丢掉官方构造逻辑。"
+      },
+      "designWhy": "「自己写的类用 @Component，别人的类用 @Bean」是日常开发每天要做 ten 次的决定，用最典型的 RestTemplate 场景固化这条规则。",
+      "relatedTopicIds": [
+        "di-three-ways",
+        "jdk-cglib-proxy"
+      ]
+    },
+    {
+      "id": "q-reg-02",
+      "topicId": "bean-registration",
+      "kind": "multiple",
+      "question": "关于 Spring 自带的注解，下面说法正确的有哪些？（多选）",
+      "options": {
+        "A": "@Service 是 @Component 的语义化变体，功能等价",
+        "B": "@Repository 额外负责把数据库异常翻译成 Spring 的 DataAccessException 体系",
+        "C": "@Controller 用于 Web 层，配合 @RequestMapping 处理请求",
+        "D": "@Repository、@Service 是 JSR-250 标准注解，与 Spring 无关"
+      },
+      "explanation": "三个 stereotype 注解都来自 Spring（org.springframework.stereotype 包），A/B/C 描述准确。D 错在「JSR-250 标准」——那是 @Resource、@PostConstruct 的出身，Spring 的 stereotype 注解是 Spring 自家的。",
+      "optionExplanations": {
+        "A": "正确，@Service 元注解了 @Component，扫描行为完全一致。",
+        "B": "正确，异常翻译是 @Repository 独有的附加能力。",
+        "C": "正确，Spring MVC 的入口注解。",
+        "D": "JSR-250 里没有这些注解，它们是 Spring 自有注解。"
+      },
+      "designWhy": "多选考查知识面的完整性：既考语义分工，又埋一个「JSR-250」的坑与后面 @Resource 一讲呼应，帮你建立「注解出身」的坐标系。",
+      "relatedTopicIds": [
+        "autowired-vs-resource"
+      ],
+      "answers": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    {
+      "id": "q-reg-03",
+      "topicId": "bean-registration",
+      "kind": "code-reading",
+      "codePath": "AppConfig.java",
+      "language": "java",
+      "code": "@Configuration\npublic class AppConfig {\n\n    @Bean\n    public Counter counterA() {\n        return new Counter(\"A\");\n    }\n\n    @Bean\n    public Counter counterB() {\n        Counter twin = counterA();\n        twin.reset();\n        return new Counter(\"B\");\n    }\n\n    @Service\n    static class AuditService {\n        AuditService(Counter counterA) {\n            System.out.println(\"审计拿到: \" + counterA.name());\n        }\n    }\n\n    static class Counter {\n        private final String name;\n        Counter(String name) { this.name = name; }\n        String name() { return name; }\n        void reset() { System.out.println(\"重置 \" + name); }\n    }\n}",
+      "question": "容器启动时，counterB 里的 counterA() 调用会发生什么？AuditService 注入的 Counter 是谁？",
+      "options": {
+        "A": "counterA() 会 new 一个新 Counter；AuditService 拿到的是新对象",
+        "B": "counterA() 被代理拦截返回容器里已有的 counterA 单例；AuditService 拿到 counterA",
+        "C": "编译错误：@Bean 方法不能互相调用",
+        "D": "counterA() 返回 counterB 自己，造成死循环"
+      },
+      "answer": "B",
+      "explanation": "@Configuration 类被 CGLIB 代理，方法内的 counterA() 调用被拦截，直接从容器取已注册的 counterA 单例，不会重新 new。所以 counterB 打印「重置 A」后返回自己的 Counter(\"B\")；AuditService 按类型+参数名注入 counterA。",
+      "optionExplanations": {
+        "A": "没有代理才这样。@Configuration（proxyBeanMethods=true 默认）保证了单例语义。",
+        "B": "正确，这正是「配置类 CGLIB 代理」存在的意义。",
+        "C": "方法互调完全合法，且正是因为能互调，才需要代理保证语义。",
+        "D": "调用的是 counterA 方法，没有递归逻辑。"
+      },
+      "designWhy": "配置类代理是高频面试题，也是后面 CGLIB 一讲的伏笔：不看源码很难意识到「方法调用」被换了实现。",
+      "relatedTopicIds": [
+        "jdk-cglib-proxy",
+        "bean-scopes"
+      ]
+    }
+  ]
+}

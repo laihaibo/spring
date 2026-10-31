@@ -1,0 +1,35 @@
+{
+  "id": "autowired-vs-resource",
+  "track": "spring",
+  "level": 1,
+  "title": "@Autowired vs @Resource：按类型找，还是按名字找？",
+  "brief": "同一个接口有多个实现时，注入冲突怎么解。三大注入注解的出身与匹配规则。",
+  "explanation": "## 先记住出身\n\n- `@Autowired`：**Spring 自家**注解\n- `@Resource`：**JSR-250 标准**注解（JDK/Jakarta 生态，Spring 兼容支持）\n- `@Qualifier`：Spring 自家，配合 @Autowired 精确点名\n\n## @Autowired：默认按类型（byType）\n\n容器按「参数类型」找候选 Bean。类型唯一 → 直接注入；类型有多个 → **退化按名字**（字段/参数名 == Bean 名）再试；还不行就报 `NoUniqueBeanDefinitionException`。\n\n```java path=PaymentDemo.java\n@Service\npublic class AlipayService implements PaymentService { }\n\n@Service\npublic class WechatPayService implements PaymentService { }\n\n@Service\npublic class CheckoutService {\n    // 冲突！两个 PaymentService，参数名 checkoutService? 不匹配任何一个 → 启动报错\n    public CheckoutService(PaymentService paymentService) { }\n}\n```\n\n三种解法：`@Qualifier(\"alipayService\")` 点名、在某个实现上加 `@Primary` 设默认、或者把参数名改成 alipayService（不推荐，改名即翻车）。\n\n## @Resource：默认按名字（byName）\n\n```java path=ResourceDemo.java\n@Service\npublic class CheckoutService {\n    @Resource(name = \"alipayService\")   // 先按 name 找，找不到再按类型兜底\n    private PaymentService payment;\n\n    @Resource                            // 不写 name 时：按字段名 payment 找，找不到再按类型\n    private PaymentService wechatPayService; // 字段名恰是另一个 Bean 的名字\n}\n```\n\n## 对比速记\n\n| | @Autowired | @Resource |\n|---|---|---|\n| 出身 | Spring | JSR-250 标准 |\n| 位置 | 构造器/Setter/字段/方法参数 | 字段/Setter（不能上构造器） |\n| 首选匹配 | 类型 | 名字 |\n| 冲突解决 | @Qualifier / @Primary | name 属性 |\n\n日常建议：构造器注入 + 需要区分时用 @Qualifier，代码不依赖字段名。",
+  "analogy": "点外卖时的两种下单方式。@Autowired = 「给我一家川菜馆」（按菜系/类型找），附近只有一家川菜馆时没问题；一条街上开了两家川菜馆，平台懵了，只好再看看你的备注名（字段名），还懵就罢工报错。@Resource = 直接报店名「老王川菜馆」（byName），店名对不上再退而求其次按菜系找。@Qualifier = 平台的精确备注：「我说的是那家总店的川菜馆」。",
+  "codeExamples": [
+    {
+      "id": "autowired-qualifier",
+      "filePath": "src/main/java/com/example/pay/CheckoutService.java",
+      "language": "java",
+      "runnableFileName": "CheckoutService.java",
+      "summary": "同类型多实现的经典冲突场景：@Qualifier 精确点名，不依赖字段名。",
+      "code": "package com.example.pay;\n\nimport org.springframework.beans.factory.annotation.Qualifier;\nimport org.springframework.stereotype.Service;\n\ninterface PaymentService {\n    String channel();\n}\n\n@Service(\"alipay\")\nclass AlipayService implements PaymentService {\n    public String channel() { return \"支付宝\"; }\n}\n\n@Service(\"wechat\")\nclass WechatPayService implements PaymentService {\n    public String channel() { return \"微信支付\"; }\n}\n\n@Service\npublic class CheckoutService {\n\n    private final PaymentService payment;\n\n    public CheckoutService(@Qualifier(\"alipay\") PaymentService payment) {\n        this.payment = payment;\n    }\n\n    public String pay() {\n        return \"已通过 \" + payment.channel() + \" 完成支付\";\n    }\n}"
+    },
+    {
+      "id": "autowired-resource",
+      "filePath": "src/main/java/com/example/pay/ReportService.java",
+      "language": "java",
+      "runnableFileName": "ReportService.java",
+      "summary": "@Resource：先按名字匹配，找不到再按类型兜底；不能用在构造器上。",
+      "code": "package com.example.pay;\n\nimport jakarta.annotation.Resource;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class ReportService {\n\n    /** 字段名 wechat 恰好是 Bean 名 → 按名字直接命中 */\n    @Resource\n    private PaymentService wechat;\n\n    /** 字段名 arbitrary 无对应 Bean → 退化按类型找，仍冲突则报错 */\n    @Resource\n    private PaymentService arbitrary;\n\n    void print() {\n        System.out.println(wechat.channel() + \" / \" + arbitrary.channel());\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「@Resource 是 Spring 的注解」——它是 JSR-250 标准注解，Spring 只是兼容支持它；@Autowired 和 @Qualifier 才是 Spring 自家。",
+    "「@Autowired 优先按名字匹配」——它首选 byType，多候选时才退化 byName；@Resource 才是首选 byName。",
+    "「@Resource 可以标在构造器上」——JSR-250 不允许，构造器注入只能配 @Autowired。",
+    "「@Primary 和 @Qualifier 作用一样」——@Primary 声明「默认首选」（全局兜底），@Qualifier 精确点名（局部指定），冲突时 @Qualifier 优先。"
+  ],
+  "tags": ["Autowired", "Resource", "Qualifier", "注入冲突"],
+  "prereq": ["di-three-ways"]
+}

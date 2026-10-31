@@ -1,0 +1,66 @@
+{
+  "topicId": "ioc-container-basics",
+  "quizzes": [
+    {
+      "id": "q-ioc-01",
+      "topicId": "ioc-container-basics",
+      "kind": "single",
+      "question": "「控制反转」中的「控制」指的是什么？被反转的又是什么？",
+      "options": {
+        "A": "控制指的是流程控制语句（if/for）的编写权，反转后由框架代写",
+        "B": "控制指的是「依赖对象的创建与组装权」，从业务代码反转给 IoC 容器",
+        "C": "控制指的是线程控制权，反转后由容器统一调度线程",
+        "D": "控制指的是数据库事务的提交权，反转后由容器自动提交"
+      },
+      "answer": "B",
+      "explanation": "IoC 反转的是「对象及其依赖由谁创建、由谁组装」的控制权：以前是你的代码主动 new，现在是容器被动供给你。A/C/D 都把「控制」偷换成了别的概念。",
+      "optionExplanations": {
+        "A": "流程控制语句仍是你写的，IoC 与 if/for 无关。",
+        "B": "正确。new 的权力交给容器，你的类只声明需要什么。",
+        "C": "Spring 有 @Async/TaskScheduler 等线程设施，但那不是 IoC 的定义。",
+        "D": "事务由声明式事务管理，属于 AOP 应用，不是 IoC 的定义。"
+      },
+      "designWhy": "这是理解 Spring 的第一块基石。很多人背了「IoC=控制反转」却说不清反转的宾语，本题逼你把「控制权」具体到「对象的创建与组装」上。",
+      "relatedTopicIds": ["di-three-ways"]
+    },
+    {
+      "id": "q-ioc-02",
+      "topicId": "ioc-container-basics",
+      "kind": "judge",
+      "question": "DI（依赖注入）是实现 IoC 思想的一种手法，二者不是同一个概念。",
+      "answer": true,
+      "explanation": "IoC 是更抽象的思想（控制权交给容器），DI 是实现它的主流手法（依赖从外面递进来）。此外还有依赖查找等实现方式，所以说「IoC 就是 DI」是概念降维。",
+      "optionExplanations": {
+        "true": "正确：思想与手法是两个层级，面试和源码阅读里都会区分。",
+        "false": "如果把两者划等号，就无法解释为什么 Martin Fowler 要单独写文章区分 IoC 与 DI。"
+      },
+      "designWhy": "判断题专门用来钉死「思想 vs 手法」的层级关系，这是后续理解 BeanFactory/ApplicationContext 分工的前提。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-ioc-03",
+      "topicId": "ioc-container-basics",
+      "kind": "code-reading",
+      "codePath": "Comparison.java",
+      "language": "java",
+      "code": "public class Comparison {\n    static class OrderService {\n        private final PayService pay;\n\n        OrderService(PayService pay) {\n            this.pay = pay;\n        }\n\n        String pay(long money) {\n            return \"paid:\" + pay.doPay(money);\n        }\n    }\n\n    interface PayService {\n        String doPay(long money);\n    }\n\n    static class WeChatPay implements PayService {\n        public String doPay(long money) {\n            return \"wechat-\" + money;\n        }\n    }\n\n    public static void main(String[] args) {\n        PayService pay = new WeChatPay();\n        OrderService order = new OrderService(pay);\n        System.out.println(order.pay(100));\n    }\n}",
+      "question": "这段代码运行后输出什么？它体现了 IoC 的哪个核心特征？",
+      "options": {
+        "A": "输出 paid:wechat-100；PayService 由外部创建后注入，OrderService 不关心具体实现",
+        "B": "输出 paid:100；PayService 是接口不能实例化，运行时报错",
+        "C": "输出 paid:wechat-100；这是字段注入的典型例子",
+        "D": "输出 null；接口引用未初始化导致空指针"
+      },
+      "answer": "A",
+      "explanation": "main 先造好 WeChatPay，再作为构造参数传给 OrderService——依赖由「外部」创建并递进来，这就是构造器注入的雏形（虽然这里没有容器，装配工作由 main 代替容器完成）。输出自然是 paid:wechat-100。",
+      "optionExplanations": {
+        "A": "正确。依赖外部传入、面向接口编程，正是 IoC 容器替你自动化的事情。",
+        "B": "接口确实不能直接 new，但这里 new 的是实现类 WeChatPay，完全合法。",
+        "C": "依赖走的是构造器参数，不是字段注入（字段注入是 @Autowired 打在字段上）。",
+        "D": "pay 已指向 WeChatPay 实例，不存在空指针。"
+      },
+      "designWhy": "用一段没有 Spring 注解的纯 Java 代码展示「注入」的本质，破除「注入是 Spring 魔法」的错觉——容器只是把 main 里的装配工作自动化了。",
+      "relatedTopicIds": ["di-three-ways", "bean-registration"]
+    }
+  ]
+}

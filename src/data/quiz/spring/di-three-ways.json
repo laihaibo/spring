@@ -1,0 +1,72 @@
+{
+  "topicId": "di-three-ways",
+  "quizzes": [
+    {
+      "id": "q-di-01",
+      "topicId": "di-three-ways",
+      "kind": "single",
+      "question": "为什么构造器注入的依赖可以声明为 final，而字段注入不行？",
+      "options": {
+        "A": "final 字段运行期会被容器改成普通字段",
+        "B": "构造器注入在对象创建那一刻就传入依赖，赋值发生在构造器内，符合 final 的赋值时机",
+        "C": "字段注入使用 setter 赋值，setter 不能碰 final",
+        "D": "final 只能用在基本类型字段上"
+      },
+      "answer": "B",
+      "explanation": "final 字段必须在构造器结束前完成赋值。构造器注入恰好利用了这一点——依赖就是构造参数；而字段注入是容器用反射在对象创建**之后**往字段里塞值，final 早就不可能了。",
+      "optionExplanations": {
+        "A": "final 是语言级约束，容器也不能违反。",
+        "B": "正确，这正是「不可变性」的来源。",
+        "C": "字段注入走的是反射（ReflectionUtils），连 setter 都不用。",
+        "D": "final 适用于任何引用类型字段。"
+      },
+      "designWhy": "把「注入时机」这个底层事实和一个 Java 语言特性（final）绑在一起考，理解了时机，三种注入方式的一切差异都能推出来。",
+      "relatedTopicIds": ["bean-lifecycle"]
+    },
+    {
+      "id": "q-di-02",
+      "topicId": "di-three-ways",
+      "kind": "judge",
+      "question": "一个类只有一个构造器时，构造器上的 @Autowired 注解可以省略（Spring 4.3+）。",
+      "answer": true,
+      "explanation": "单一构造器是唯一的装配入口，Spring 直接采用它，注解可省。有多个构造器时必须用 @Autowired 指明用哪个（或提供默认构造器）。",
+      "optionExplanations": {
+        "true": "正确：省略注解既少噪音，又保证「缺依赖启动即报错」。",
+        "false": "多构造器场景才需要显式标注，单构造器可以直接省。"
+      },
+      "designWhy": "这是日常代码里最常见的省略，很多人照着老教程写冗余注解；一条判断题帮你省掉每个类一行噪音。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-di-03",
+      "topicId": "di-three-ways",
+      "kind": "code-completion",
+      "codePath": "NotificationService.java",
+      "language": "java",
+      "codeTemplate": "@Service\npublic class NotificationService {\n\n    private final MessageSender sender;\n\n    public NotificationService(__1__ MessageSender sender) {\n        this.sender = sender;\n    }\n\n    // 断网时降级：可选依赖，用 __2__ 注入，允许没有实现时也不报错\n    @Autowired(required = __3__)\n    public void setSmsSender(SmsSender smsSender) {\n        this.smsSender = smsSender;\n    }\n\n    private SmsSender smsSender;\n}",
+      "blanks": [
+        {
+          "candidates": ["final", "static", "volatile", "transient"],
+          "answer": "final"
+        },
+        {
+          "candidates": ["setter 注入", "字段注入", "构造器注入"],
+          "answer": "setter 注入"
+        },
+        {
+          "candidates": ["true", "false"],
+          "answer": "false"
+        }
+      ],
+      "question": "补全这段依赖注入代码：必需依赖（构造器）应加什么修饰符保证不可变？可选依赖用哪种方式注入？required 该是什么值？",
+      "explanation": "构造器注入的依赖声明为 final（不可变、构造期赋值）；可选依赖用 Setter 注入，@Autowired(required = false) 表示容器里没有 SmsSender 也不报错。",
+      "optionExplanations": {
+        "空1": "final 保证 sender 引用不可变。",
+        "空2": "可选依赖 + 可后补，正是 Setter 注入的适用面。",
+        "空3": "required = false 才是「可选」语义。"
+      },
+      "designWhy": "三种方式在同一份代码里出现，逼你区分「必需依赖」与「可选依赖」的不同处理，而不是背一句「用构造器注入」。",
+      "relatedTopicIds": ["autowired-vs-resource"]
+    }
+  ]
+}

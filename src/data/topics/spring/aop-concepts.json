@@ -1,0 +1,35 @@
+{
+  "id": "aop-concepts",
+  "track": "spring",
+  "level": 1,
+  "title": "AOP 核心概念：切面、切点、通知与织入",
+  "brief": "日志/事务/权限重复散落几十个类？AOP 用一个切面统一接管。先吃透六件套术语。",
+  "explanation": "## 为什么需要 AOP\n\n统计每个接口的耗时、校验每个操作的权限、管理每笔事务——这些逻辑出现在几十个类里，每处都写一遍叫**横切关注点**（cross-cutting concern）：它们横切了所有业务模块。改一条日志格式要动几十个文件，这就是要消灭的痛。\n\nAOP（Aspect-Oriented Programming）把横切逻辑抽到一个**切面（Aspect）**里，声明「在哪些方法执行什么」，业务代码零感知。\n\n## 六件套术语（必须能脱口而出）\n\n- **Aspect 切面**：横切逻辑的类（@Aspect + @Component）\n- **JoinPoint 连接点**：程序中可被拦截的点，Spring AOP 里就是**方法执行**\n- **Pointcut 切点**：用表达式筛选哪些连接点生效（如「service 包下所有公共方法」）\n- **Advice 通知**：拦截后要干什么，按位置分 @Before / @After / @Around 等\n- **Target 目标对象**：被代理的业务 Bean\n- **Weaving 织入**：把切面应用到目标上生成代理的过程——Spring 在**运行时**做这件事\n\n```java path=LogAspect.java\n@Aspect\n@Component\npublic class LogAspect {\n\n    // 切点：service 包下所有类的所有方法\n    @Pointcut(\"execution(* com.example.service..*.*(..))\")\n    public void serviceLayer() { }\n\n    // 通知：方法执行前打日志\n    @Before(\"serviceLayer()\")\n    public void logStart(JoinPoint jp) {\n        System.out.println(\"调用 \" + jp.getSignature().getName());\n    }\n}\n```\n\n## Spring AOP 的边界（重要）\n\nSpring AOP 是**运行时动态代理**：容器启动后给目标 Bean 包一层代理对象，调用方实际拿到的是代理。因此它**只能拦截 Spring Bean 的外部方法调用**——类内部 `this.doSomething()` 自调用不走代理，拦截不到（详见 [[jdk-cglib-proxy]]）。编译期改字节码的是 AspectJ，那是另一个量级的工具。",
+  "analogy": "把每个业务方法想象成商场里的店铺，横切关注点就是「安检」和「客流统计」：让每家店铺自己雇保安、自己数人头（每类自己写日志/权限），成本爆炸还五花八门。商场的管理办法是在必经之路装一套统一系统：划定「所有进入商场的顾客」都要过安检门（Pointcut 切点），安检动作是「查包+计数」（Advice 通知），这套系统就是切面（Aspect）。店铺（业务类）对此毫无感知——生意照做，安全统一。注意：顾客在店铺内部从后门溜去隔壁（this 自调用），安检门是管不到的。",
+  "codeExamples": [
+    {
+      "id": "aop-log-aspect",
+      "filePath": "src/main/java/com/example/aspect/PerfAspect.java",
+      "language": "java",
+      "runnableFileName": "PerfAspect.java",
+      "summary": "统计任意 service 方法耗时的完整切面：Around 通知 + 切点表达式 + JoinPoint 取签名。",
+      "code": "package com.example.aspect;\n\nimport org.aspectj.lang.ProceedingJoinPoint;\nimport org.aspectj.lang.annotation.Around;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Pointcut;\nimport org.springframework.stereotype.Component;\n\n@Aspect\n@Component\npublic class PerfAspect {\n\n    /** service 包及子包下所有类的所有方法（不限参数） */\n    @Pointcut(\"execution(* com.example.service..*.*(..))\")\n    public void serviceLayer() {\n    }\n\n    @Around(\"serviceLayer()\")\n    public Object measure(ProceedingJoinPoint pjp) throws Throwable {\n        long start = System.nanoTime();\n        try {\n            return pjp.proceed();\n        } finally {\n            long costMs = (System.nanoTime() - start) / 1_000_000;\n            System.out.println(pjp.getSignature().toShortString() + \" 耗时 \" + costMs + \"ms\");\n        }\n    }\n}"
+    },
+    {
+      "id": "aop-target",
+      "filePath": "src/main/java/com/example/service/OrderService.java",
+      "language": "java",
+      "runnableFileName": "OrderService.java",
+      "summary": "目标类完全不知道自己被代理——业务代码里没有任何切面痕迹，这就是无侵入。",
+      "code": "package com.example.service;\n\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class OrderService {\n\n    public String createOrder(String sku, int count) {\n        // 这里没有任何日志/监控代码，全由 PerfAspect 统一接管\n        return \"ORDER-\" + sku + \"-\" + count;\n    }\n\n    public void cancelOrder(String orderId) {\n        // 同样被切点覆盖，无需关心\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「Spring AOP 会修改目标类的字节码」——它是运行时生成代理对象包住目标；编译期/类加载期改字节码的是 AspectJ。",
+    "「同一个类里 A 方法调用本类的 B 方法，B 上的切面会生效」——不会：this 调用绕过代理直接进原始对象，这是 Spring AOP 最著名的失效场景。",
+    "「连接点和切点是一回事」——连接点是所有可拦截的点，切点是筛选条件；全城的人 vs 符合条件被安检的人。",
+    "「@Aspect 加上就能生效」——还必须让 Spring 把它当 Bean 管理（@Component 或 @Bean），且目标也得是 Spring Bean。"
+  ],
+  "tags": ["AOP", "切面", "横切关注点", "术语"],
+  "prereq": ["ioc-container-basics"]
+}

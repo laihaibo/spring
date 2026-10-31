@@ -1,0 +1,35 @@
+{
+  "id": "di-three-ways",
+  "track": "spring",
+  "level": 1,
+  "title": "三种依赖注入方式：构造器 / Setter / 字段",
+  "brief": "依赖从哪里进来？三种注入姿势的优劣与一条铁律：默认用构造器注入。",
+  "explanation": "## 构造器注入（推荐）\n\n依赖通过构造参数进来：\n\n```java path=OrderService.java\n@Service\npublic class OrderService {\n    private final PayService payService; // 可以 final！\n\n    public OrderService(PayService payService) { // 单构造器可省 @Autowired\n        this.payService = payService;\n    }\n}\n```\n\n四个硬优点：**不可变**（字段可 final）、**失败快速**（缺依赖容器启动就报错，不会拖到运行期 NPE）、**不遗漏**（依赖清单就写在构造器签名里）、**易测试**（单测里直接 new OrderService(fakePay) 就能测，不需要 Spring）。\n\nSpring 4.3+：类只有一个构造器时，`@Autowired` 可以不写。\n\n## Setter 注入（可选依赖）\n\n```java path=ReportService.java\n@Service\npublic class ReportService {\n    private PdfExporter exporter; // 可选依赖，允许后补\n\n    @Autowired(required = false)\n    public void setExporter(PdfExporter exporter) {\n        this.exporter = exporter;\n    }\n}\n```\n\n适合「没有也能活」的依赖，或者需要运行期重新配置的场景。\n\n## 字段注入（不建议，但要能看懂）\n\n```java path=FieldDemo.java\n@Service\npublic class FieldDemo {\n    @Autowired\n    private PayService payService; // 反射直接塞进字段\n}\n```\n\n最简洁，但代价大：字段不能 final、依赖被藏起来（类自己 new 时全是 null）、脱离容器几乎无法单测（只能反射塞值）、掩盖了类是否职责过载（依赖再多也不觉得）。老代码里大量存在，要能读懂，新代码别写。\n\n## 一条铁律\n\n**必需依赖用构造器注入，可选依赖才考虑 Setter。字段注入只出现在历史代码里。**",
+  "analogy": "把「类」想象成新装修的房子，把「依赖」想象成水电。构造器注入 = 交房时就通好水电：装不满根本不让入住（容器启动即报错），入住后水表电表固定不可换（final），想验收只需要假水电（测试很容易）。Setter 注入 = 先入住、水电后补装：住进去了但卫生间可能暂时没水（依赖可能为 null），适合非必需的设施。字段注入 = 房东趁你睡觉把家电直接传进屋里：省事到家，但你永远说不清家电哪来的，想换也摸不着门（没法单测、不能 final）——酷炫但失控。",
+  "codeExamples": [
+    {
+      "id": "di-constructor",
+      "filePath": "src/main/java/com/example/order/OrderService.java",
+      "language": "java",
+      "runnableFileName": "OrderService.java",
+      "summary": "推荐的构造器注入：依赖不可变、清单自解释、单测无需容器。",
+      "code": "package com.example.order;\n\nimport org.springframework.stereotype.Service;\n\ninterface PayService {\n    String pay(long amount);\n}\n\n@Service\npublic class OrderService {\n\n    private final PayService payService;\n    private final AuditLogger auditLogger;\n\n    /** 类只有一个构造器时 @Autowired 可省略（Spring 4.3+） */\n    public OrderService(PayService payService, AuditLogger auditLogger) {\n        this.payService = payService;\n        this.auditLogger = auditLogger;\n    }\n\n    public String checkout(long amount) {\n        auditLogger.log(\"下单金额: \" + amount);\n        return payService.pay(amount);\n    }\n}\n\nclass AuditLogger {\n    void log(String msg) {\n        System.out.println(\"[audit] \" + msg);\n    }\n}"
+    },
+    {
+      "id": "di-field",
+      "filePath": "src/main/java/com/example/legacy/FieldInjectionDemo.java",
+      "language": "java",
+      "runnableFileName": "FieldInjectionDemo.java",
+      "summary": "字段注入对比：能跑，但 final 不行、脱离容器没法 new 着测——看得懂老代码即可，新代码别用。",
+      "code": "package com.example.legacy;\n\nimport org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class FieldInjectionDemo {\n\n    @Autowired // 反射直接塞字段，不走构造器\n    private PayService payService;\n\n    // 1. 字段不能声明为 final：注入发生在对象创建之后\n    // 2. 脱离容器直接 new FieldInjectionDemo() 时 payService == null，单测只能靠反射塞值\n    // 3. 依赖藏在类体内部，加到第 8 个时编译器完全不会提醒\n\n    public String checkout(long amount) {\n        return payService.pay(amount);\n    }\n}\n\ninterface PayService {\n    String pay(long amount);\n}"
+    }
+  ],
+  "misconceptions": [
+    "「字段注入最简洁，所以是最佳实践」——简洁不等于好：它牺牲了不可变性、可测试性和依赖可见性，Spring 官方文档也推荐构造器注入。",
+    "「构造器注入必须显式写 @Autowired」——只有一个构造器时 Spring 4.3+ 自动识别，无需注解。",
+    "「Setter 注入就是字段注入的另一种写法」——Setter 走方法、字段走反射塞值，语义完全不同：Setter 适合可选依赖。",
+    "「构造器注入循环依赖一定没法解决」——大多数情况循环依赖本身是设计问题，应该先重构；实在必要时可用 @Lazy 打破僵局，而不是换回字段注入掩盖问题。"
+  ],
+  "tags": ["DI", "构造器注入", "可测试性"],
+  "prereq": ["ioc-container-basics", "bean-registration"]
+}

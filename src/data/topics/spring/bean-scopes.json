@@ -1,0 +1,35 @@
+{
+  "id": "bean-scopes",
+  "track": "spring",
+  "level": 1,
+  "title": "Bean 作用域：singleton 与 prototype 的边界",
+  "brief": "默认全容器一份的 singleton、每次新建的 prototype，以及 singleton 依赖 prototype 的经典陷阱。",
+  "explanation": "## 五种内置作用域\n\n- **singleton**（默认）：每个 Bean 名在容器里只有一份实例，启动时预创建\n- **prototype**：每次 getBean / 注入都创建新实例，容器创建后不再跟踪其生命周期\n- request / session / application：Web 环境，按 HTTP 请求/会话/ServletContext 生效（了解即可）\n\n```java path=ScopeDemo.java\n@Component                  // singleton，默认\n@Scope(\"singleton\")\npublic class CoffeeMachine { }\n\n@Component\n@Scope(\"prototype\")         // 每次要都给新的\npublic class PaperCup { }\n```\n\n## singleton ≠ 单例模式\n\nGoF 单例是 JVM 全局、饿汉私有构造；容器 singleton 是**每个容器、每个 Bean 名一份**，由容器保证，类本身可以有 public 构造器、可以被测试自由 new。同一个类注册两个名字就是两个「单例」。\n\n## 经典陷阱：singleton 依赖 prototype\n\n咖啡机（singleton）出厂时插了一只纸杯（注入发生一次），之后所有人用的都是**那只**杯子——prototype 在注入点只发生一次创建，之后不会再刷新。输出里两次取到的 cup 是同一个对象！\n\n```java path=ScopeTrap.java\n@Component\npublic class CoffeeMachine {\n    private final PaperCup cup;          // 陷阱：启动时注入一次，终生持有\n    public CoffeeMachine(PaperCup cup) {\n        this.cup = cup;\n    }\n    public PaperCup cup() {\n        return cup;                      // 每次返回同一个，prototype 名存实亡\n    }\n}\n```\n\n三种正解：\n\n1. `@Lookup` 抽象方法（容器重写它返回新实例）\n2. 注入 `ObjectFactory<PaperCup>` / `ObjectProvider<PaperCup>`，用时 `.getObject()`\n3. 注入 `Provider<PaperCup>`（JSR-330）\n\n```java path=ScopeFixed.java\n@Component\npublic class CoffeeMachine {\n    private final ObjectFactory<PaperCup> cupFactory;\n    public CoffeeMachine(ObjectFactory<PaperCup> cupFactory) {\n        this.cupFactory = cupFactory;\n    }\n    public PaperCup cup() {\n        return cupFactory.getObject();   // 每次现取新杯子\n    }\n}\n```\n\n本质：**「要一个新实例」的行为不能在装配期定死，要延迟到使用期**——工厂/Provider 就是把创建动作包了一层。",
+  "analogy": "公司里的咖啡机（singleton）：全公司一台，大家排队共用，出厂即上岗，公司倒闭（容器关闭）它才退休。纸杯（prototype）：谁用谁取，用完即弃。陷阱是「咖啡机出厂时自己带了一只纸杯插在出水口」——注入的那一刻就把 prototype 钉死成了事实上的 singleton。解法是给咖啡机装一个「取杯器」（ObjectFactory）：每次出咖啡现抽一只新杯子，而不是永远用插着的那只。",
+  "codeExamples": [
+    {
+      "id": "scope-trap",
+      "filePath": "src/main/java/com/example/scope/ScopeTrapDemo.java",
+      "language": "java",
+      "runnableFileName": "ScopeTrapDemo.java",
+      "summary": "陷阱复现：singleton 注入 prototype 后，多次获取拿到的却是同一个实例。",
+      "code": "package com.example.scope;\n\nimport org.springframework.beans.factory.config.ConfigurableBeanFactory;\nimport org.springframework.context.annotation.AnnotationConfigApplicationContext;\nimport org.springframework.context.annotation.ComponentScan;\nimport org.springframework.context.annotation.Configuration;\nimport org.springframework.context.annotation.Scope;\nimport org.springframework.stereotype.Component;\n\n@Configuration\n@ComponentScan\npublic class ScopeTrapDemo {\n\n    @Component\n    static class CoffeeMachine {\n        private final PaperCup cup;\n\n        CoffeeMachine(PaperCup cup) {\n            this.cup = cup;\n        }\n\n        PaperCup cup() {\n            return cup;\n        }\n    }\n\n    @Component\n    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)\n    static class PaperCup {\n        private static int seq = 0;\n        private final int id = ++seq;\n\n        int id() {\n            return id;\n        }\n    }\n\n    public static void main(String[] args) {\n        var ctx = new AnnotationConfigApplicationContext(ScopeTrapDemo.class);\n        CoffeeMachine machine = ctx.getBean(CoffeeMachine.class);\n        System.out.println(\"第一次取杯 id=\" + machine.cup().id());\n        System.out.println(\"第二次取杯 id=\" + machine.cup().id());\n        // 输出两次 id 相同：prototype 在注入点只创建一次，名存实亡\n    }\n}"
+    },
+    {
+      "id": "scope-fixed",
+      "filePath": "src/main/java/com/example/scope/ScopeFixedDemo.java",
+      "language": "java",
+      "runnableFileName": "ScopeFixedDemo.java",
+      "summary": "正解：ObjectFactory 延迟到使用期创建，每次都拿到崭新的 prototype。",
+      "code": "package com.example.scope;\n\nimport org.springframework.beans.factory.ObjectFactory;\nimport org.springframework.beans.factory.config.ConfigurableBeanFactory;\nimport org.springframework.context.annotation.AnnotationConfigApplicationContext;\nimport org.springframework.context.annotation.ComponentScan;\nimport org.springframework.context.annotation.Configuration;\nimport org.springframework.context.annotation.Scope;\nimport org.springframework.stereotype.Component;\n\n@Configuration\n@ComponentScan\npublic class ScopeFixedDemo {\n\n    @Component\n    static class CoffeeMachine {\n        private final ObjectFactory<PaperCup> cupFactory;\n\n        CoffeeMachine(ObjectFactory<PaperCup> cupFactory) {\n            this.cupFactory = cupFactory;\n        }\n\n        PaperCup cup() {\n            return cupFactory.getObject();\n        }\n    }\n\n    @Component\n    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)\n    static class PaperCup {\n        private static int seq = 0;\n        private final int id = ++seq;\n\n        int id() {\n            return id;\n        }\n    }\n\n    public static void main(String[] args) {\n        var ctx = new AnnotationConfigApplicationContext(ScopeFixedDemo.class);\n        CoffeeMachine machine = ctx.getBean(CoffeeMachine.class);\n        System.out.println(\"第一次取杯 id=\" + machine.cup().id());\n        System.out.println(\"第二次取杯 id=\" + machine.cup().id());\n        // 输出 id=1 / id=2：每次现取新实例\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「singleton 就是 GoF 单例模式」——容器级每名一份，由容器保证；类可以有 public 构造器、可被多次 new，同一类注册两个 Bean 名就是两份。",
+    "「singleton Bean 天然线程安全」——正好相反：全容器共享一份实例，有状态字段在并发下就是事故；singleton Bean 应当无状态。",
+    "「prototype 注入 singleton 后每次使用都是新实例」——注入只发生在装配期一次；要每次新实例需 ObjectFactory / @Lookup 延迟获取。",
+    "「request/session 作用域在任何环境都能用」——它们依赖 Web 上下文，纯后端批处理/单元测试里用了直接报错。"
+  ],
+  "tags": ["作用域", "singleton", "prototype", "线程安全"],
+  "prereq": ["bean-registration", "bean-lifecycle"]
+}

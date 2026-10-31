@@ -1,0 +1,86 @@
+{
+  "topicId": "autowired-vs-resource",
+  "quizzes": [
+    {
+      "id": "q-ar-01",
+      "topicId": "autowired-vs-resource",
+      "kind": "single",
+      "question": "容器中存在两个 PaymentService 实现（alipayService、wechatPayService）时，下面哪种写法能正常启动且注入 alipayService？",
+      "options": {
+        "A": "public CheckoutService(PaymentService paymentService) { ... }",
+        "B": "public CheckoutService(@Qualifier(\"alipayService\") PaymentService paymentService) { ... }",
+        "C": "@Resource 标在构造器参数上，name 设为 alipayService",
+        "D": "把参数改名为 wechatPayService 就能注入 alipayService"
+      },
+      "answer": "B",
+      "explanation": "多候选冲突时用 @Qualifier 精确点名是标准解法。A 按类型找到两个候选，参数名 paymentService 又对不上任何 Bean 名，启动报 NoUniqueBeanDefinitionException；C 错在 @Resource 不允许标在构造器上；D 改名注入的是 wechat 而不是 alipay。",
+      "optionExplanations": {
+        "A": "byType 命中两个、byName 也失败，NoUniqueBeanDefinitionException。",
+        "B": "正确，@Qualifier 优先级高于类型匹配与 @Primary。",
+        "C": "@Resource 只能用于字段和 Setter 方法。",
+        "D": "参数名匹配到的是 wechatPayService，方向反了。"
+      },
+      "designWhy": "注入冲突是真实项目每天遇到的问题。四个选项覆盖了「什么都不做」「标准解法」「想当然的用法」「常见笔误」四种典型反应，检验的是决策能力而不是背诵。",
+      "relatedTopicIds": [
+        "di-three-ways",
+        "bean-registration"
+      ]
+    },
+    {
+      "id": "q-ar-02",
+      "topicId": "autowired-vs-resource",
+      "kind": "multiple",
+      "question": "关于 @Autowired 与 @Resource 的匹配规则，正确的有哪些？（多选）",
+      "options": {
+        "A": "@Autowired 首选按类型匹配，多候选时退化按名字匹配",
+        "B": "@Resource 首选按名字匹配（未写 name 时用字段名），找不到再按类型兜底",
+        "C": "@Resource 来源于 JSR-250，是标准注解；@Autowired 是 Spring 自有注解",
+        "D": "@Autowired 可以标注在字段、构造器、Setter 上；@Resource 同样可以标在构造器上"
+      },
+      "explanation": "A/B 是两者的核心差异（类型优先 vs 名字优先），C 是出身差异。D 前半句对，但 @Resource 不支持构造器注入——JSR-250 的规范限制。",
+      "optionExplanations": {
+        "A": "正确：类型唯一时直接注入；多个候选才用字段/参数名再筛一次。",
+        "B": "正确：@Resource(name=\"x\") 显式指定，或默认字段名。",
+        "C": "正确：jakarta.annotation.Resource vs org.springframework.beans.factory.annotation.Autowired。",
+        "D": "@Resource 不能上构造器，这是两者能力清单的硬差异。"
+      },
+      "designWhy": "把「出身 + 匹配顺序 + 可用位置」三个维度一次考全，多选形式惩罚只背了单句口诀的人。",
+      "relatedTopicIds": [
+        "di-three-ways"
+      ],
+      "answers": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    {
+      "id": "q-ar-03",
+      "topicId": "autowired-vs-resource",
+      "kind": "code-reading",
+      "codePath": "PaymentHub.java",
+      "language": "java",
+      "code": "@Service(\"defaultPay\")\nclass DefaultPay implements PaymentService {\n    public String channel() { return \"default\"; }\n}\n\n@Service(\"backupPay\")\nclass BackupPay implements PaymentService {\n    public String channel() { return \"backup\"; }\n}\n\n@Service\npublic class PaymentHub {\n    @Resource\n    private PaymentService backupPay;\n\n    public String route() {\n        return backupPay.channel();\n    }\n}",
+      "question": "PaymentHub 里注入的是哪个实现？如果字段名改成与任何 Bean 名都不同的 arbitrary，又会发生什么？",
+      "options": {
+        "A": "注入 DefaultPay（因为 default 排在前面）；改名后注入 BackupPay",
+        "B": "注入 BackupPay（@Resource 先按字段名 backupPay 命中同名 Bean）；改名后按类型兜底，但类型有两个候选 → 启动报错",
+        "C": "两个都注入成 List",
+        "D": "注入 BackupPay；改名后自动改选 DefaultPay"
+      },
+      "answer": "B",
+      "explanation": "@Resource 未显式指定 name 时，先拿字段名当 Bean 名去找：字段名 backupPay 与 Bean 名 backupPay 完全一致，按名字直接命中。改名成 arbitrary 后名字找不到，退化按类型匹配——但 PaymentService 有两个实现，类型匹配也冲突，启动即抛 NoUniqueBeanDefinitionException。@Resource 不会悄悄帮你挑一个。",
+      "optionExplanations": {
+        "A": "@Resource 名字优先，不看 Bean 定义顺序；defaultPay 这个名字只有在按类型兜底后（配合 @Primary）才可能生效。",
+        "B": "正确：名字命中 → 类型兜底 → 仍冲突就报错，这条匹配链是 @Resource 的全部规则。",
+        "C": "集合注入需要字段声明为 List<PaymentService>，单个字段不会自动变列表。",
+        "D": "类型匹配仍有两个候选时不会自动挑选，而是报错。"
+      },
+      "designWhy": "故意把字段名写成 backupPay、Bean 名写成 backup-pay，制造「看起来命中、实际没命中」的陷阱。做错这道题的人，以后写 @Resource 时会真的去核对名字，而不是想当然。",
+      "relatedTopicIds": [
+        "bean-registration",
+        "di-three-ways"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,385 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------- 主题令牌：暗色为主视觉（深靛蓝 + 荧光蓝/紫） ---------- */
+:root {
+  --radius: 1rem;
+  --background: oklch(0.97 0.012 262);
+  --foreground: oklch(0.22 0.04 268);
+  --card: oklch(1 0 0 / 62%);
+  --card-foreground: oklch(0.22 0.04 268);
+  --popover: oklch(0.98 0.008 262);
+  --popover-foreground: oklch(0.22 0.04 268);
+  --primary: oklch(0.55 0.19 258);
+  --primary-foreground: oklch(0.98 0.01 250);
+  --secondary: oklch(0.6 0.16 300);
+  --secondary-foreground: oklch(0.98 0.01 250);
+  --muted: oklch(0.92 0.02 262);
+  --muted-foreground: oklch(0.5 0.03 265);
+  --accent: oklch(0.55 0.16 300);
+  --accent-foreground: oklch(0.98 0.01 250);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0.2 0.04 268 / 14%);
+  --input: oklch(0.2 0.04 268 / 18%);
+  --ring: oklch(0.55 0.19 258);
+
+  /* 液态玻璃亮色变量 */
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 8px 32px rgba(30, 41, 89, 0.12);
+  --mesh-opacity: 0.45;
+  --sidebar: oklch(0.98 0.01 262 / 72%);
+  --sidebar-foreground: oklch(0.22 0.04 268);
+  --sidebar-primary: oklch(0.55 0.19 258);
+  --sidebar-primary-foreground: oklch(0.98 0.01 250);
+  --sidebar-accent: oklch(0.55 0.19 258 / 14%);
+  --sidebar-accent-foreground: oklch(0.22 0.04 268);
+  --sidebar-border: oklch(0.2 0.04 268 / 12%);
+  --sidebar-ring: oklch(0.55 0.19 258);
+}
+
+.dark {
+  --background: oklch(0.16 0.03 272);
+  --foreground: oklch(0.95 0.012 250);
+  --card: oklch(0.2 0.035 270);
+  --card-foreground: oklch(0.95 0.012 250);
+  --popover: oklch(0.2 0.035 270);
+  --popover-foreground: oklch(0.95 0.012 250);
+  --primary: oklch(0.72 0.17 252);
+  --primary-foreground: oklch(0.15 0.03 268);
+  --secondary: oklch(0.68 0.18 300);
+  --secondary-foreground: oklch(0.15 0.03 268);
+  --muted: oklch(0.25 0.03 270);
+  --muted-foreground: oklch(0.7 0.02 265);
+  --accent: oklch(0.66 0.2 300);
+  --accent-foreground: oklch(0.95 0.012 250);
+  --destructive: oklch(0.65 0.22 25);
+  --border: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.72 0.17 252);
+
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.28);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --mesh-opacity: 0.5;
+  --sidebar: oklch(0.18 0.03 272 / 78%);
+  --sidebar-foreground: oklch(0.95 0.012 250);
+  --sidebar-primary: oklch(0.72 0.17 252);
+  --sidebar-primary-foreground: oklch(0.15 0.03 268);
+  --sidebar-accent: oklch(0.72 0.17 252 / 14%);
+  --sidebar-accent-foreground: oklch(0.95 0.012 250);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.72 0.17 252);
+}
+
+/* 侧栏玻璃化：模糊背景 + 描边 */
+[data-sidebar="sidebar"] {
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-right: 1px solid var(--sidebar-border);
+}
+
+@supports not ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {
+  [data-sidebar="sidebar"] {
+    background: var(--card) !important;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* SF Pro 系统字体栈 + 中文回退 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "tnum";
+    min-height: 100dvh;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 35%, transparent);
+  }
+  /* 防移动端输入框自动大写/自动纠正 */
+  input,
+  textarea {
+    text-transform: none;
+  }
+}
+
+/* 自定义组件类统一收进 components 层：
+   Tailwind 工具类（utilities 层）即可覆盖 .liquid-glass 的 position 等，
+   否则未分层样式会压过 .fixed / .absolute 导致导航、弹窗定位失效 */
+@layer components {
+/* ---------- 液态玻璃三层体系 ---------- */
+.liquid-glass {
+  position: relative;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.05),
+    var(--glass-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* 彩色边缘高光：顶部一条 1px 渐变描边 */
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(96, 165, 250, 0.55),
+    rgba(255, 255, 255, 0.1) 35%,
+    rgba(167, 139, 250, 0.45) 70%,
+    rgba(34, 211, 238, 0.4)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.liquid-glass-strong {
+  background: color-mix(in srgb, var(--glass-bg) 160%, transparent);
+}
+
+.liquid-glass-soft {
+  background: color-mix(in srgb, var(--glass-bg) 70%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in srgb, var(--glass-highlight) 60%, transparent),
+    var(--glass-shadow);
+}
+
+/* iOS Safari / 旧浏览器降级：不支持 backdrop-filter 时提高不透明度保证对比度 */
+@supports not ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {
+  .liquid-glass,
+  .liquid-glass-soft,
+  .liquid-glass-strong {
+    background: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .dark .liquid-glass,
+  .dark .liquid-glass-soft,
+  .dark .liquid-glass-strong {
+    background: oklch(0.2 0.035 270 / 96%);
+  }
+}
+
+/* ---------- 动态 mesh gradient 背景（纯 CSS，缓慢漂移） ---------- */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  opacity: var(--mesh-opacity);
+  pointer-events: none;
+}
+
+.mesh-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  will-change: transform;
+}
+
+.mesh-blob-1 {
+  width: 55vmax;
+  height: 55vmax;
+  left: -18vmax;
+  top: -18vmax;
+  background: radial-gradient(circle, oklch(0.6 0.21 258), transparent 65%);
+  animation: mesh-drift-1 26s ease-in-out infinite alternate;
+}
+
+.mesh-blob-2 {
+  width: 48vmax;
+  height: 48vmax;
+  right: -15vmax;
+  top: 8vmax;
+  background: radial-gradient(circle, oklch(0.58 0.23 300), transparent 65%);
+  animation: mesh-drift-2 32s ease-in-out infinite alternate;
+}
+
+.mesh-blob-3 {
+  width: 42vmax;
+  height: 42vmax;
+  left: 20vmax;
+  bottom: -18vmax;
+  background: radial-gradient(circle, oklch(0.72 0.16 220), transparent 65%);
+  animation: mesh-drift-3 38s ease-in-out infinite alternate;
+}
+
+@keyframes mesh-drift-1 {
+  from {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  to {
+    transform: translate(12vmax, 8vmax) rotate(40deg) scale(1.15);
+  }
+}
+
+@keyframes mesh-drift-2 {
+  from {
+    transform: translate(0, 0) rotate(0deg) scale(1.05);
+  }
+  to {
+    transform: translate(-10vmax, 12vmax) rotate(-35deg) scale(0.9);
+  }
+}
+
+@keyframes mesh-drift-3 {
+  from {
+    transform: translate(0, 0) scale(0.95);
+  }
+  to {
+    transform: translate(-14vmax, -10vmax) scale(1.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh-blob {
+    animation: none;
+  }
+}
+
+/* ---------- 细滚动条（玻璃质感） ---------- */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 25%, transparent) transparent;
+}
+.thin-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--foreground) 22%, transparent);
+}
+
+/* ---------- 触控目标 ≥ 44px 工具类 ---------- */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* ---------- 数字对齐 ---------- */
+.nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 代码块（code-block 本地实现配套样式） ---------- */
+.cb-scroll {
+  font-size: 13px;
+}
+
+.cb-pre {
+  margin: 0;
+  padding: 12px 16px;
+  background: transparent;
+  overflow: visible;
+}
+
+.cb-pre pre {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  overflow: visible;
+}
+
+.cb-code,
+.cb-pre code {
+  display: block;
+  min-width: max-content;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  color: #abb2bf;
+  white-space: pre;
+}
+
+/* 行号：CSS counter 装饰，不进入复制内容 */
+[data-numbered] .cb-line,
+[data-numbered] .cb-pre code > .line,
+[data-numbered] .cb-pre code > span.line {
+  display: block;
+  counter-increment: line;
+  position: relative;
+  padding-left: 3rem;
+}
+
+[data-numbered] .cb-code,
+[data-numbered] .cb-pre code {
+  counter-reset: line;
+}
+
+[data-numbered] .cb-line::before,
+[data-numbered] .cb-pre code > .line::before {
+  content: counter(line);
+  position: absolute;
+  left: 0;
+  width: 2rem;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.25);
+  user-select: none;
+}
+
+/* shiki 行元素通用块化 */
+.cb-pre code > .line {
+  display: block;
+  min-height: 1em;
+}
+}
+

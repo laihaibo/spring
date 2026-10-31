@@ -1,0 +1,35 @@
+{
+  "id": "bean-registration",
+  "track": "spring",
+  "level": 1,
+  "title": "Bean 的定义与注册：@Component / @Bean / @ComponentScan",
+  "brief": "Bean 是容器管的零件。把类登记进容器的三种姿势：注解扫描、配置类工厂方法、XML。",
+  "explanation": "## Bean 是什么\n\n容器管理的对象就叫 **Bean**。你把类「登记」给容器（注册 Bean 定义），容器按定义实例化、装配、管理生命周期。登记方式主要有三种：\n\n## 1. 注解 + 扫描（自己写的类）\n\n在类上打 `@Component`（或语义化变体 `@Service` / `@Repository` / `@Controller`），配合 `@ComponentScan` 指定从哪些包扫描。Spring Boot 的 `@SpringBootApplication` 里已经自带 `@ComponentScan`（默认扫启动类所在包及子包）。\n\n```java path=UserService.java\n@Service // 语义化的 @Component\npublic class UserService { }\n```\n\n## 2. @Bean 工厂方法（第三方/需要定制的类）\n\n第三方类你改不了源码，没法加 @Component。就在 `@Configuration` 配置类里写一个 `@Bean` 方法：方法返回值登记为 Bean。\n\n```java path=AppConfig.java\n@Configuration\npublic class AppConfig {\n    @Bean\n    public RestTemplate restTemplate() {\n        RestTemplate rt = new RestTemplate();\n        rt.setConnectTimeout(Duration.ofSeconds(3)); // 个性化定制\n        return rt;\n    }\n}\n```\n\n## 3. XML（了解即可）\n\n`<bean id=\"userService\" class=\"...\"/>`，老项目里会见到，新项目基本不用。\n\n## @Configuration 的一个小秘密\n\n配置类被 CGLIB 代理：在配置类内部直接「调用」@Bean 方法 `userService()`，得到的**不是新对象**，而是容器里的同一个单例——这是代理类拦截了方法调用（与 [[jdk-cglib-proxy]] 一讲呼应）。\n\n## 怎么选\n\n自己写的业务类 → @Component 系列；第三方库的类或需要复杂构造逻辑 → @Bean；同一个类想注册多个不同配置的实例 → 多个 @Bean 方法。",
+  "analogy": "把容器想象成公司的员工花名册（HR 系统）。@ComponentScan = HR 划定招聘范围：「我负责科技园 A 区 1-10 栋的所有公司」（默认扫启动类所在包）。@Component 系列注解 = 员工自己挂牌上岗：「我是研发部（@Service）的，登记我吧」。@Bean = 外聘专家：外部公司的专家（第三方库的类），你改不了对方的劳动合同，只能由 HR 手动签一份登记表（配置类方法）把他录进花名册。XML 就是十年前的纸质档案袋——还能用，但没人想回去。",
+  "codeExamples": [
+    {
+      "id": "bean-reg-config",
+      "filePath": "src/main/java/com/example/config/AppConfig.java",
+      "language": "java",
+      "runnableFileName": "AppConfig.java",
+      "summary": "@Configuration + @Bean：注册第三方类并定制；同类多实例的典型场景。",
+      "code": "package com.example.config;\n\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\nimport org.springframework.web.client.RestTemplate;\n\n@Configuration\npublic class AppConfig {\n\n    /** 第三方类改不了源码，用 @Bean 手动登记 + 定制 */\n    @Bean\n    public RestTemplate restTemplate() {\n        RestTemplate restTemplate = new RestTemplate();\n        restTemplate.getInterceptors().add((request, body, execution) -> {\n            System.out.println(\"调用: \" + request.getURI());\n            return execution.execute(request, body);\n        });\n        return restTemplate;\n    }\n\n    /** 同一个类可以登记多个不同配置的实例，用名字区分 */\n    @Bean\n    public RestTemplate fastRestTemplate() {\n        RestTemplate restTemplate = new RestTemplate();\n        return restTemplate;\n    }\n}"
+    },
+    {
+      "id": "bean-reg-component",
+      "filePath": "src/main/java/com/example/user/UserService.java",
+      "language": "java",
+      "runnableFileName": "UserService.java",
+      "summary": "@Component 系列注解：自己写的类自动被 @ComponentScan 发现并注册。",
+      "code": "package com.example.user;\n\nimport org.springframework.stereotype.Repository;\nimport org.springframework.stereotype.Service;\n\n@Repository\nclass UserRepository {\n    String findName(long id) {\n        return \"user-\" + id;\n    }\n}\n\n@Service\npublic class UserService {\n\n    private final UserRepository repository;\n\n    // 单构造器时 @Autowired 可以省略\n    UserService(UserRepository repository) {\n        this.repository = repository;\n    }\n\n    public String displayName(long id) {\n        return \"用户:\" + repository.findName(id);\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「@Bean 方法里直接 new 依赖没关系」——如果依赖也是 Bean，应作为方法参数传入（容器会自动注入），否则绕过了装配与生命周期管理。",
+    "「@Configuration 类里调用 @Bean 方法会 new 新对象」——配置类被 CGLIB 代理，内部调用被拦截，返回的仍是容器单例。",
+    "「@Service/@Repository 只是名字不同、完全等价」——作为 @Component 的变体主要提供语义；@Repository 还附带把数据库异常翻译为 DataAccessException。",
+    "「@ComponentScan 只能标在启动类上」——它可以出现在任意配置类上，也可以一次指定多个包。"
+  ],
+  "tags": ["Bean", "注册", "Configuration", "ComponentScan"],
+  "prereq": ["ioc-container-basics"]
+}

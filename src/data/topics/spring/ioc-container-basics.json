@@ -1,0 +1,35 @@
+{
+  "id": "ioc-container-basics",
+  "track": "spring",
+  "level": 1,
+  "title": "IoC 控制反转与 Spring 容器",
+  "brief": "把对象的创建和组装交给容器：从主动 new 到被动接收，理解 Spring 一切的起点。",
+  "explanation": "## 先看没有 IoC 的世界\n\n传统写法里，一个类要用另一个类，就自己 `new`：\n\n```java path=WithoutIoc.java\nUserService s = new UserService();\ns.setUserRepository(new MySqlUserRepository()); // 自己new依赖\n```\n\n问题有三个：**换实现要改源码**（换成 Redis 存储得改 UserService）、**组装逻辑散落各处**（每个地方都在重复 new）、**没法单独测试**（测试 UserService 必然连上真实数据库）。\n\n## IoC 是什么\n\nIoC（Inversion of Control，控制反转）把「对象由谁创建、依赖由谁装配」这件大事，从你的业务代码手里**反转**给了一个统一的机构——IoC 容器（在 Spring 里就是 `ApplicationContext`）。\n\n- 你只负责声明：我需要什么（`@Component` 注册自己、构造器声明依赖）\n- 容器负责：读取定义 → 实例化 → 按依赖关系装配 → 生命周期管理\n\n```java path=WithIoc.java\n@Service\npublic class UserService {\n    private final UserRepository repo; // 只声明需要什么\n    public UserService(UserRepository repo) { this.repo = repo; }\n}\n```\n\n注意 `UserService` 里没有一个 new：依赖 `UserRepository` 是容器从外面「注入」进来的。这种手法就叫 **DI（依赖注入）**——它是 IoC 思想最主流的实现方式。所以记一句话：**IoC 是思想，DI 是手法，容器是执行机构**。\n\n## 容器两大接口\n\n- `BeanFactory`：最底层容器接口，惰性加载（getBean 时才创建）\n- `ApplicationContext`：BeanFactory 的超集，启动时预创建单例、支持事件/国际化/AOP，日常开发全部用它\n\n## 为什么要费这个劲\n\n换实现只改一行配置/注解；所有装配集中一处；测试时传一个假的 Repository 实现即可，不用启动数据库。这三点就是 Spring 能长成生态的基础。",
+  "analogy": "把「写程序」想象成「吃饭」。没有 IoC 时你是自己下厨：买菜（new 依赖）、掌勺（组装）、刷锅（释放资源）全程自己干，想换川菜得重学菜谱（改源码）。用了 IoC 就像去餐厅：你只要声明「我要一份水煮鱼」（声明依赖），后厨（容器）自动买料、烹饪、装盘、端上来。你想换成粤菜，服务员换个单子就行（换一个实现类），你的吃饭流程（业务代码）完全不用动。",
+  "codeExamples": [
+    {
+      "id": "ioc-without",
+      "filePath": "src/main/java/com/example/legacy/UserService.java",
+      "language": "java",
+      "runnableFileName": "UserServiceLegacy.java",
+      "summary": "传统写法：UserService 亲手 new 依赖，与 MySQL 实现焊死，换存储必须改这个类。",
+      "code": "package com.example.legacy;\n\n// 传统写法：对象自己创建并组装依赖（无 IoC）\ninterface UserRepository {\n    String findName(long id);\n}\n\nclass MySqlUserRepository implements UserRepository {\n    @Override\n    public String findName(long id) {\n        // 假装在查 MySQL\n        return \"user-\" + id;\n    }\n}\n\npublic class UserService {\n    // 痛点1：依赖实现被硬编码，换 Redis 要改这里\n    private final UserRepository repo = new MySqlUserRepository();\n\n    public String displayName(long id) {\n        return \"用户:\" + repo.findName(id);\n    }\n\n    public static void main(String[] args) {\n        UserService service = new UserService();\n        System.out.println(service.displayName(42));\n    }\n}"
+    },
+    {
+      "id": "ioc-with",
+      "filePath": "src/main/java/com/example/ioc/IocDemo.java",
+      "language": "java",
+      "runnableFileName": "IocDemo.java",
+      "summary": "IoC 写法：类只声明依赖，容器负责创建与装配；main 里手动演示容器的角色。",
+      "code": "package com.example.ioc;\n\nimport java.util.HashMap;\nimport java.util.Map;\n\n// IoC 写法：组件只声明依赖，创建与装配交给容器\ninterface UserRepository {\n    String findName(long id);\n}\n\nclass CachedUserRepository implements UserRepository {\n    private final Map<Long, String> cache = new HashMap<>();\n\n    @Override\n    public String findName(long id) {\n        return cache.computeIfAbsent(id, k -> \"cached-\" + k);\n    }\n}\n\nclass UserService {\n    // 依赖从构造器「注入」，本类不知道具体实现是谁\n    private final UserRepository repo;\n    UserService(UserRepository repo) {\n        this.repo = repo;\n    }\n\n    String displayName(long id) {\n        return \"用户:\" + repo.findName(id);\n    }\n}\n\n// 这个类扮演「IoC 容器」的角色：决定造什么、装给谁\npublic class IocDemo {\n    public static void main(String[] args) {\n        // 真实 Spring 中这一步由 ApplicationContext 自动完成\n        UserRepository repo = new CachedUserRepository();\n        UserService service = new UserService(repo);\n        System.out.println(service.displayName(42));\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「IoC 就是 DI」——不准确：IoC 是思想（控制权反转），DI 依赖注入是它最常用的实现手法，此外还有依赖查找（DL）等方式。",
+    "「用了 Spring 就一行 new 都不能写」——无状态工具类（如 StringUtils 风格）直接 new 完全没问题；需要参与协作、被增强、被管理的组件才交给容器。",
+    "「IoC 容器就是一个存对象的 Map」——Map 只存实例，容器还要管依赖装配、生命周期回调、作用域、事件发布等。",
+    "「ApplicationContext 启动时啥都不干，用的时候才创建 Bean」——默认单例 Bean 在容器启动阶段就全部预创建（惰性需显式 @Lazy），这也意味着启动期就能暴露装配错误。"
+  ],
+  "tags": ["IoC", "容器", "DI", "核心概念"],
+  "prereq": []
+}

@@ -1,0 +1,104 @@
+{
+  "topicId": "bean-lifecycle",
+  "quizzes": [
+    {
+      "id": "q-lc-01",
+      "topicId": "bean-lifecycle",
+      "kind": "single",
+      "question": "在构造器里直接使用 @Autowired 字段，最常见的后果是什么？为什么？",
+      "options": {
+        "A": "编译报错：构造器不能访问字段",
+        "B": "NullPointerException：构造器执行时依赖注入还没发生，字段是 null",
+        "C": "死循环：容器反复创建该 Bean",
+        "D": "没问题：@Autowired 字段在构造器执行前就已注入"
+      },
+      "answer": "B",
+      "explanation": "生命周期顺序是「实例化 → 属性填充 → 初始化」，构造器属于第 1 步，@Autowired 字段填充属于第 2 步——构造器跑完依赖才进来，所以字段是 null。初始化逻辑应放 @PostConstruct（第 5 步）。",
+      "optionExplanations": {
+        "A": "语法完全合法，问题出在运行期。",
+        "B": "正确，这是生命周期顺序的直接推论。",
+        "C": "与循环依赖无关，那是另一类问题。",
+        "D": "方向反了：注入恰恰发生在构造之后。"
+      },
+      "designWhy": "把「生命周期顺序」落到一个新手必踩的坑上（构造器里用注入字段），比背七步流程有效十倍。",
+      "relatedTopicIds": [
+        "di-three-ways"
+      ]
+    },
+    {
+      "id": "q-lc-02",
+      "topicId": "bean-lifecycle",
+      "kind": "multiple",
+      "question": "关于初始化与销毁回调，正确的有哪些？（多选）",
+      "options": {
+        "A": "同一 Bean 上 @PostConstruct 先于 InitializingBean#afterPropertiesSet 执行",
+        "B": "@PreDestroy 是 singleton Bean 在容器关闭时的第一顺位销毁回调",
+        "C": "prototype 作用域的 Bean，容器关闭时也会执行它的 @PreDestroy",
+        "D": "AOP 代理对象由 BeanPostProcessor 在初始化之后的阶段包装生成"
+      },
+      "explanation": "初始化顺序 @PostConstruct → afterPropertiesSet → init-method，A 对；销毁顺序 @PreDestroy → destroy → destroy-method，B 对；AOP 在 postProcessAfterInitialization 里包代理，D 对。C 错：容器只跟踪 singleton 的销毁，prototype 创建后即脱离容器管理。",
+      "optionExplanations": {
+        "A": "正确，注解回调是第一顺位。",
+        "B": "正确，销毁链的头一个。",
+        "C": "prototype 的销毁回调不会由容器触发，需要客户端代码自己负责释放。",
+        "D": "正确，这正是 @Transactional 等注解能生效的机制。"
+      },
+      "designWhy": "三个正确项覆盖初始化顺序、销毁顺序、代理时机三个高频面试点，用一个错误项（prototype 销毁）检验是否真理解「容器管到哪一步」。",
+      "relatedTopicIds": [
+        "bean-scopes",
+        "jdk-cglib-proxy"
+      ],
+      "answers": [
+        "A",
+        "B",
+        "D"
+      ]
+    },
+    {
+      "id": "q-lc-03",
+      "topicId": "bean-lifecycle",
+      "kind": "code-completion",
+      "codePath": "ConnectionHolder.java",
+      "language": "java",
+      "codeTemplate": "@Component\npublic class ConnectionHolder {\n\n    @Autowired\n    private DataSource dataSource;\n\n    // 错误示范的位置：千万不要在这里使用 dataSource\n    public ConnectionHolder() {\n        // dataSource.xxx(); ← 此时 dataSource 是 __1__\n    }\n\n    // 正确位置：依赖注入完成后的初始化回调\n    @__2__\n    public void warmUp() {\n        dataSource.getConnection();\n    }\n\n    // 容器关闭时释放连接\n    @__3__\n    public void shutdown() {\n        dataSource.close();\n    }\n}",
+      "blanks": [
+        {
+          "candidates": [
+            "null",
+            "默认对象",
+            "代理对象"
+          ],
+          "answer": "null"
+        },
+        {
+          "candidates": [
+            "PostConstruct",
+            "Autowired",
+            "Component",
+            "Override"
+          ],
+          "answer": "PostConstruct"
+        },
+        {
+          "candidates": [
+            "PreDestroy",
+            "PostConstruct",
+            "Scope"
+          ],
+          "answer": "PreDestroy"
+        }
+      ],
+      "question": "补全生命周期注解：构造器里注入字段是什么状态？初始化与销毁分别该用什么注解？",
+      "explanation": "构造器阶段（第1步）依赖未注入，字段为 null；@PostConstruct 在依赖注入完成后执行（第5步），适合预热；@PreDestroy 在容器关闭销毁阶段执行（第7步），适合释放资源。",
+      "optionExplanations": {
+        "空1": "第1步早于第2步属性填充。",
+        "空2": "初始化回调的标准注解，且顺序在依赖注入之后。",
+        "空3": "销毁回调的标准注解，singleton 随容器关闭触发。"
+      },
+      "designWhy": "用「连接池预热/释放」这个真实场景把三个关键步骤串成一段代码，写完这一遍，生命周期顺序就从背诵变成了肌肉记忆。",
+      "relatedTopicIds": [
+        "bean-scopes"
+      ]
+    }
+  ]
+}

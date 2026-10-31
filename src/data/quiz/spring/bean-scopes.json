@@ -1,0 +1,67 @@
+{
+  "topicId": "bean-scopes",
+  "quizzes": [
+    {
+      "id": "q-sc-01",
+      "topicId": "bean-scopes",
+      "kind": "single",
+      "question": "singleton 作用域的 Bean 里持有一个可变的成员计数器 counter，并发请求下会发生什么？",
+      "options": {
+        "A": "没问题：每个请求都会拿到独立的 Bean 实例",
+        "B": "counter 被所有请求共享，出现脏读/丢失更新，singleton Bean 必须设计成无状态",
+        "C": "Spring 会自动给 counter 加锁保证线程安全",
+        "D": "容器检测到并发访问后自动把作用域改成 prototype"
+      },
+      "answer": "B",
+      "explanation": "singleton 是全容器共享同一份实例——所有请求打的都是同一个对象，可变字段就是共享状态。Spring 不做任何加锁（D），也不会换作用域。正确做法：Bean 无状态，把可变状态放数据库/Redis/方法局部变量，或用并发容器+原子类并明确设计。",
+      "optionExplanations": {
+        "A": "每请求独立实例是 request 作用域的行为，singleton 恰恰相反。",
+        "B": "正确，「无状态」是 singleton Bean 的第一设计原则。",
+        "C": "Spring 从不隐式加锁，线程安全永远是你的责任。",
+        "D": "作用域由 Bean 定义决定，容器不会运行期偷改。"
+      },
+      "designWhy": "「singleton 线程安全」是生产事故高发区，用一个 counter 把「共享实例 = 共享状态」的血缘关系钉死。",
+      "relatedTopicIds": ["bean-registration"]
+    },
+    {
+      "id": "q-sc-02",
+      "topicId": "bean-scopes",
+      "kind": "judge",
+      "question": "singleton 作用域的 Bean 依赖 prototype 作用域的 Bean 时，后者只在注入时创建一次，此后不再产生新实例。",
+      "answer": true,
+      "explanation": "注入发生在 singleton 装配期，仅此一次。之后 singleton 里持有的永远是那个实例——prototype 事实上退化成了 singleton。要每次新实例必须用 ObjectFactory / @Lookup / Provider 延迟到使用期获取。",
+      "optionExplanations": {
+        "true": "正确，这是作用域混用的第一大陷阱。",
+        "false": "如果每次使用都新建，就不需要 ObjectFactory 这些「延迟获取」设施了。"
+      },
+      "designWhy": "这是作用域一讲的核心考点，也是 RuoYi/业务代码里真实存在的坑（无状态 Service 里注入有状态 prototype 组件）。",
+      "relatedTopicIds": ["bean-lifecycle"]
+    },
+    {
+      "id": "q-sc-03",
+      "topicId": "bean-scopes",
+      "kind": "code-completion",
+      "codePath": "TaskDispatcher.java",
+      "language": "java",
+      "codeTemplate": "@Component\npublic class TaskDispatcher {\n\n    // TaskContext 是 prototype：每次派发任务都要一个全新的上下文\n    private final __1__<TaskContext> contextFactory;\n\n    public TaskDispatcher(__1__<TaskContext> contextFactory) {\n        this.contextFactory = contextFactory;\n    }\n\n    public void dispatch() {\n        // 延迟到使用期才创建，每次都是新实例\n        TaskContext ctx = contextFactory.__2__();\n        ctx.prepare();\n    }\n}",
+      "blanks": [
+        {
+          "candidates": ["ObjectFactory", "TaskContext", "ApplicationContext"],
+          "answer": "ObjectFactory"
+        },
+        {
+          "candidates": ["getObject", "newInstance", "create", "getBean"],
+          "answer": "getObject"
+        }
+      ],
+      "question": "补全代码：singleton 的 TaskDispatcher 每次派发都要崭新的 prototype TaskContext，注入什么类型的字段？获取新实例调用什么方法？",
+      "explanation": "注入 ObjectFactory<TaskContext>，它把「创建动作」封装成可以随时调用的 getObject()——装配期只注入工厂，使用期才真正创建，prototype 的语义得以保留。",
+      "optionExplanations": {
+        "空1": "ObjectFactory 是 Spring 提供的延迟获取接口；TaskContext 是目标类型不是工厂；ApplicationContext 是整个容器，杀鸡用牛刀且同样只注入一次。",
+        "空2": "ObjectFactory 的方法签名就是 T getObject()。"
+      },
+      "designWhy": "把「延迟获取」从口号变成两行具体代码：字段类型 + 方法名。做对这道题，作用域陷阱的解法就真正落到手上。",
+      "relatedTopicIds": ["bean-lifecycle"]
+    }
+  ]
+}

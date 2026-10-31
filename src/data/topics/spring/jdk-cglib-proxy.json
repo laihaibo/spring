@@ -1,0 +1,35 @@
+{
+  "id": "jdk-cglib-proxy",
+  "track": "spring",
+  "level": 1,
+  "title": "JDK 动态代理 vs CGLIB：代理对象的两种出身",
+  "brief": "Spring AOP 的底层引擎：接口代理与子类代理的选择规则、能力边界与自调用失效根源。",
+  "explanation": "## 两种代理的画像\n\n**JDK 动态代理**（java.lang.reflect.Proxy）：要求目标**实现接口**。运行时生成一个 `$Proxy` 类，与目标实现同一组接口，方法调用转发给 `InvocationHandler`。\n\n**CGLIB 代理**：为目标生成一个**子类**，覆写方法插入拦截逻辑（MethodInterceptor）。不要求接口，但**无法覆写 final / private / static 方法**（final 方法不能被覆写，private 对子类不可见）。\n\n```java path=JdkProxyDemo.java\nPayService target = new AlipayService();\nPayService proxy = (PayService) Proxy.newProxyInstance(\n    target.getClass().getClassLoader(),\n    new Class<?>[] { PayService.class },   // 必须有接口\n    (p, method, args) -> {\n        System.out.println(\"前置：记录支付请求\");\n        Object result = method.invoke(target, args);\n        System.out.println(\"后置：记录支付结果\");\n        return result;\n    });\nproxy.pay(100); // 调用的是代理，不是原始对象\n```\n\n## Spring 怎么选\n\n- Spring Framework 传统默认：有接口 → JDK；无接口 → CGLIB\n- **Spring Boot 2.x 起：默认 proxyTargetClass=true，统一用 CGLIB**（避免「注入具体类型」时 JDK 代理不兼容的坑）\n\n## 自调用失效的根源\n\n代理生效的前提是「调用穿过代理对象」。`this.method()` 里的 this 是**原始对象**，不是代理——拦截器根本没有机会插手。这就是上一讲自调用问题的根源：不是 Spring 不想拦，是这次调用压根没路过它家门口。\n\n## 边界速查\n\n| 场景 | JDK | CGLIB |\n|---|---|---|\n| 无接口的类 | ✗ | ✓ |\n| final 方法 | — | ✗（无法覆写） |\n| private 方法 | ✗ | ✗ |\n| 类内部 this 调用 | ✗ | ✗ |",
+  "analogy": "明星（目标对象）与经纪人（代理）。JDK 动态代理：明星只接「有标准合同模板」的活（实现了接口），经纪人与明星持同一份模板出面，外界只能通过模板上的条目（接口方法）找他。CGLIB 代理：经纪人干脆扮成明星的「双胞胎兄弟」（子类）出道，长得一样、能接同样的活；但明星有些招牌动作写进了合同禁止模仿（final 方法）、有些私房功夫从不外传（private），兄弟就学不了。自调用失效：明星绕过经纪人私下接活（this 调用）——私下交易，经纪人既不知情也抽不了成。",
+  "codeExamples": [
+    {
+      "id": "proxy-jdk",
+      "filePath": "src/main/java/com/example/proxy/JdkProxyDemo.java",
+      "language": "java",
+      "runnableFileName": "JdkProxyDemo.java",
+      "summary": "纯 JDK 动态代理（无需 Spring）：20 行看清「代理拦截调用」的本质，可直接运行。",
+      "code": "package com.example.proxy;\n\nimport java.lang.reflect.Proxy;\n\npublic class JdkProxyDemo {\n\n    interface PayService {\n        String pay(long amount);\n    }\n\n    static class AlipayService implements PayService {\n        public String pay(long amount) {\n            return \"支付宝支付 \" + amount + \" 元\";\n        }\n    }\n\n    public static void main(String[] args) {\n        PayService target = new AlipayService();\n\n        PayService proxy = (PayService) Proxy.newProxyInstance(\n            target.getClass().getClassLoader(),\n            new Class<?>[] { PayService.class },\n            (p, method, mArgs) -> {\n                System.out.println(\"[前置] 记录支付请求\");\n                Object result = method.invoke(target, mArgs);\n                System.out.println(\"[后置] 记录支付结果\");\n                return result;\n            });\n\n        System.out.println(proxy.pay(100));\n        System.out.println(\"代理类型: \" + proxy.getClass().getName());\n        // 代理类型形如 com.sun.proxy.$Proxy0，与 AlipayService 是两个对象\n    }\n}"
+    },
+    {
+      "id": "proxy-cglib-boundary",
+      "filePath": "src/main/java/com/example/proxy/CglibBoundaryDemo.java",
+      "language": "java",
+      "runnableFileName": "CglibBoundaryDemo.java",
+      "summary": "CGLIB 的能力边界：public 方法能被增强，final/private 拦不住——与 Spring AOP 行为完全一致。",
+      "code": "package com.example.proxy;\n\nimport org.springframework.cglib.proxy.Enhancer;\nimport org.springframework.cglib.proxy.MethodInterceptor;\n\npublic class CglibBoundaryDemo {\n\n    static class Greeter {\n        public String hello(String name) {\n            return \"你好, \" + name;\n        }\n\n        public final String bye(String name) {\n            return \"再见, \" + name;\n        }\n\n        private String secret() {\n            return \"内部密语\";\n        }\n    }\n\n    public static void main(String[] args) {\n        Enhancer enhancer = new Enhancer();\n        enhancer.setSuperclass(Greeter.class);\n        enhancer.setCallback((MethodInterceptor) (obj, method, mArgs, proxy) -> {\n            System.out.println(\"[拦截到] \" + method.getName());\n            return proxy.invokeSuper(obj, mArgs);\n        });\n\n        Greeter greeter = (Greeter) enhancer.create();\n        System.out.println(greeter.hello(\"张三\"));\n        System.out.println(greeter.bye(\"张三\"));\n\n        greeter.secret();\n        // 输出：只有 hello 被拦截。\n        // bye 是 final 无法被覆写（CGLIB 直接跳过），secret 是 private 根本不可见。\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「有接口就一定走 JDK 代理」——Spring Boot 2.x 起默认 proxyTargetClass=true，有接口也用 CGLIB，注入具体类型不再报错。",
+    "「CGLIB 能拦截一切方法」——final/private/static 方法都拦不住：前两者无法在子类中覆写或不可见，static 调用不经过实例。",
+    "「自调用失效是 Spring 的 bug」——这是代理机制的本质边界：this 指向原始对象，调用没有经过代理，不是失效而是从未路过。",
+    "「代理对象和目标对象是同一个实例」——容器里放的是代理，代理内部才持有目标引用；打印 getClass() 一目了然。"
+  ],
+  "tags": ["代理", "CGLIB", "JDK Proxy", "AOP 原理"],
+  "prereq": ["aop-concepts"]
+}
