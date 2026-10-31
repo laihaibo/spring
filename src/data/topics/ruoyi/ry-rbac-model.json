@@ -1,0 +1,37 @@
+{
+  "id": "ry-rbac-model",
+  "track": "ruoyi",
+  "level": 1,
+  "title": "RBAC 权限模型：五张表串起用户到权限",
+  "brief": "sys_user → sys_user_role → sys_role → sys_role_menu → sys_menu：为什么中间隔了两张关联表。",
+  "explanation": "## 五张表的关系图\n\n```\nsys_user（用户）\n   │ N:N\nsys_user_role（用户-角色关联）\n   │\nsys_role（角色）\n   │ N:N\nsys_role_menu（角色-菜单关联）\n   │\nsys_menu（菜单/权限）── perms 字段：'system:user:list'\n```\n\n登录后一次 JOIN 查全：用户 → 角色 → 权限字符串集合，缓存在 LoginUser 里随 Token 走。\n\n## 两个设计要点\n\n**1. 中间表解决 N:N**。一个用户可以有多个角色（张三 = 部门经理 + 系统审计员），一个角色对应多个用户——多对多必须靠关联表落地，没有任何黑魔法。\n\n**2. 菜单表身兼两职**。sys_menu 既是前端菜单树（目录/菜单），又是权限源（按钮，menu_type='F'），每条可分配的权限就是一个 `perms` 字符串（如 `system:user:remove`）。前端用 `v-hasPermi` 控制按钮显隐，后端用 `@ss.hasPermi()` 做真校验——**前端显隐只是体验，后端校验才是安全**（perms 字符串两侧对应同一份数据源）。\n\n## 数据权限是第五维\n\n功能权限（能不能用这个接口）之外，RuoYi 还有数据权限（能用接口但只能看某些行），落在 sys_role.data_scope 字段（1 全部 / 2 自定义 / 3 本部门 / 4 本部门及以下 / 5 仅本人）——由 DataScopeAspect 动态拼 SQL 实现（详见 [[ry-data-scope-aspect]]）。",
+  "analogy": "RBAC 像公司的「职位体系」。员工（sys_user）不直接领权限，而是先任职岗位（sys_role）——经理、审计员；任职记录（sys_user_role）是合同；每个岗位配置一套「门禁卡模板」（sys_role_menu）。公司门禁模板存在一张总表上（sys_menu），每张卡对应一串门禁码（perms='system:user:list'）。好处一目了然：新员工入职发岗位卡即可（不用逐个配 50 扇门），岗位职责调整改模板一次全公司生效。数据权限则是「同是经理，A 楼的经理只看 A 楼报表」——岗位上的 another 维度（data_scope）。",
+  "codeExamples": [
+    {
+      "id": "ry-rbac-sql",
+      "filePath": "sql/ry_20250101.sql",
+      "language": "sql",
+      "runnableFileName": "rbac-tables.sql",
+      "summary": "五表结构核心字段（简化）：关联表只有两个外键，menu 表用 perms 承载权限字符串。",
+      "sourceNote": "RuoYi-Vue · sql/ry_20xxxxxx.sql（字段节选）",
+      "code": "-- 用户表\nCREATE TABLE sys_user (\n    user_id     BIGINT PRIMARY KEY,\n    user_name   VARCHAR(30) NOT NULL,\n    dept_id     BIGINT\n);\n\n-- 用户-角色关联（N:N 中间表）\nCREATE TABLE sys_user_role (\n    user_id BIGINT NOT NULL,\n    role_id BIGINT NOT NULL,\n    PRIMARY KEY (user_id, role_id)\n);\n\n-- 角色表：data_scope 决定数据权限维度\nCREATE TABLE sys_role (\n    role_id    BIGINT PRIMARY KEY,\n    role_name  VARCHAR(30) NOT NULL,\n    role_key   VARCHAR(100) NOT NULL,   -- 前端 v-hasRole 用\n    data_scope CHAR(1) DEFAULT '1'      -- 1全部 2自定义 3本部门 4本部门及以下 5仅本人\n);\n\n-- 角色-菜单关联\nCREATE TABLE sys_role_menu (\n    role_id BIGINT NOT NULL,\n    menu_id BIGINT NOT NULL,\n    PRIMARY KEY (role_id, menu_id)\n);\n\n-- 菜单/权限表：perms 是后端校验的权限字符串\nCREATE TABLE sys_menu (\n    menu_id   BIGINT PRIMARY KEY,\n    menu_name VARCHAR(50),\n    menu_type CHAR(1),                   -- M目录 C菜单 F按钮\n    perms     VARCHAR(100)               -- 如 system:user:list\n);"
+    },
+    {
+      "id": "ry-rbac-perms",
+      "filePath": "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/SysPermissionServiceImpl.java",
+      "language": "java",
+      "runnableFileName": "SysPermissionService.java",
+      "summary": "权限字符串的组装：角色键 + 菜单 perms 集合，登录时一次算好缓存进 LoginUser。",
+      "sourceNote": "RuoYi-Vue · ruoyi-framework/.../web/service/SysPermissionService.java（节选简化）",
+      "code": "package com.ruoyi.framework.web.service;\n\nimport java.util.HashSet;\nimport java.util.List;\nimport java.util.Set;\nimport com.ruoyi.common.core.domain.entity.SysMenu;\nimport com.ruoyi.common.core.domain.entity.SysRole;\nimport com.ruoyi.system.service.ISysMenuService;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class SysPermissionService {\n\n    private final ISysMenuService menuService;\n\n    public SysPermissionService(ISysMenuService menuService) {\n        this.menuService = menuService;\n    }\n\n    /** 登录时调用：角色键集合 + 权限字符串集合，写入 LoginUser 缓存 */\n    public Set<String> getMenuPermission(SysUser user) {\n        Set<String> perms = new HashSet<>();\n        // 管理员直接拥有全部权限\n        if (user.isAdmin()) {\n            perms.add(\"*:*:*\");\n            return perms;\n        }\n        List<SysRole> roles = user.getRoles();\n        if (!roles.isEmpty()) {\n            // 多角色权限取并集\n            List<SysMenu> menus = menuService.selectMenuPermsByRoleId(roles);\n            for (SysMenu menu : menus) {\n                for (String perm : menu.getPerms().split(\",\")) {\n                    if (!perm.isEmpty()) {\n                        perms.addAll(java.util.Arrays.asList(perm.split(\":\")) == null\n                            ? java.util.Collections.emptySet()\n                            : java.util.Collections.singleton(perm.trim()));\n                    }\n                }\n            }\n        }\n        return perms;\n    }\n}\n\nclass SysUser {\n    Long userId;\n    List<SysRole> roles;\n    boolean isAdmin() {\n        return userId != null && userId == 1L;\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「RBAC 是 RuoYi 发明的」——RBAC 是通用权限设计模型（基于角色的访问控制），RuoYi 只是它的标准实现之一。",
+    "「前端按钮隐藏了，接口就安全了」——v-hasPermi 只控制显示；不带 @ss.hasPermi 后端校验的接口等于裸奔，抓包可直接调。",
+    "「菜单和权限是两张表」——RuoYi 用一张 sys_menu 承担两职：目录/菜单管导航，按钮管权限（menu_type 区分）。",
+    "「权限字符串随便写」——perms 前后端约定为 '模块:业务:操作'（system:user:list），乱写会让 @ss.hasPermi 永远匹配不上。"
+  ],
+  "tags": ["RBAC", "权限模型", "数据权限"],
+  "prereq": ["ry-architecture"]
+}

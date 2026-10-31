@@ -1,0 +1,63 @@
+{
+  "topicId": "ry-shiro-vs-security",
+  "quizzes": [
+    {
+      "id": "q-rysv-01",
+      "topicId": "ry-shiro-vs-security",
+      "kind": "single",
+      "question": "Shiro 的 Realm 与 Spring Security 的 UserDetailsService，最准确的关系是？",
+      "options": {
+        "A": "功能完全不同的两个组件",
+        "B": "同一职责（认证/授权数据源）在不同框架的实现名：Realm 的两个回调对应 loadUserByUsername + 授权集合组装",
+        "C": "Realm 管授权、UserDetailsService 管加密",
+        "D": "UserDetailsService 是 Realm 的子类"
+      },
+      "answer": "B",
+      "explanation": "两者都是「把用户与权限从数据库查出来交给安全框架」的数据源组件：Shiro Realm 拆成认证回调（doGetAuthenticationInfo）与授权回调（doGetAuthorizationInfo）两个方法；Spring Security 由 loadUserByUsername 返回带权限集合的 UserDetails，授权校验复用该集合。框架不同，职责同构。",
+      "optionExplanations": {
+        "A": "职责同构，这正是对比学习的价值。",
+        "B": "正确，这是本讲核心的映射关系。",
+        "C": "密码校验分别是 CredentialsMatcher 与 PasswordEncoder 的职责。",
+        "D": "属于两个框架的类体系，没有继承关系。"
+      },
+      "designWhy": "建立「换框架不换思想」的映射表，是同时看懂 RuoYi 两个版本安全模块的钥匙。",
+      "relatedTopicIds": ["ry-user-realm", "sb-security-jwt"]
+    },
+    {
+      "id": "q-rysv-02",
+      "topicId": "ry-shiro-vs-security",
+      "kind": "judge",
+      "question": "RuoYi-Vue 前后端分离版放弃 Shiro 改用 Spring Security，与无状态 JWT 方案的契合是重要考量。",
+      "answer": true,
+      "explanation": "前后端分离下会话由 JWT+Redis 承载，Shiro 的核心优势（Session 管理）用不上了；而 Spring Security 的过滤器链 + SessionCreationPolicy.STATELESS + 与 Spring 生态的深度集成更贴合无状态方案。Shiro 的轻量优势则留在传统单体版本里继续发挥。",
+      "optionExplanations": {
+        "true": "正确：技术选型跟着架构形态走。",
+        "false": "如果分离版仍需要会话管理，Shiro 反而更合适。"
+      },
+      "designWhy": "选型题比概念题高级：它要求用「架构形态决定框架选择」的逻辑推理，而不是背答案。",
+      "relatedTopicIds": ["sb-security-jwt", "ry-security-config"]
+    },
+    {
+      "id": "q-rysv-03",
+      "topicId": "ry-shiro-vs-security",
+      "kind": "multiple",
+      "question": "关于两套方案的概念对应，正确的有哪些？（多选）",
+      "options": {
+        "A": "Shiro 的 SecurityManager 对应 Spring Security 的过滤器链（FilterChainProxy）",
+        "B": "Shiro 的 CredentialsMatcher 对应 Spring Security 的 PasswordEncoder",
+        "C": "Shiro 的 SessionManager 在 RuoYi-Vue 中被 JWT+Redis 取代",
+        "D": "Shiro 的 INI 配置必须迁移为 Spring Security 的 XML 配置"
+      },
+      "answers": ["A", "B", "C"],
+      "explanation": "A/B/C 是标准映射。D 错在两处：RuoYi 用的是 JavaConfig 而非 INI；Spring Security 的现代写法是 HttpSecurity DSL（Java 代码），不是 XML。",
+      "optionExplanations": {
+        "A": "正确，两者都是安全体系的中枢。",
+        "B": "正确，密码校验器的对应关系。",
+        "C": "正确，无状态方案不需要会话管理器。",
+        "D": "两处皆错：老版 Shiro 用 JavaConfig/INI，新版 Spring Security 用 DSL。"
+      },
+      "designWhy": "映射表的多选覆盖「中枢/密码/会话/配置」四个维度，并埋一个「现代写法」的认知纠偏。",
+      "relatedTopicIds": ["ry-security-config"]
+    }
+  ]
+}

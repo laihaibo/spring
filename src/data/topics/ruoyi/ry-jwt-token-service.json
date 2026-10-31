@@ -1,0 +1,37 @@
+{
+  "id": "ry-jwt-token-service",
+  "track": "ruoyi",
+  "level": 2,
+  "title": "源码精读 TokenService：JWT + Redis 的双牌设计",
+  "brief": "JWT 里只存一个 UUID，真正的登录态在 Redis——签发、解析、20 分钟滑动续期三板斧。",
+  "explanation": "## 为什么要「双牌」\n\n纯 JWT 无法主动失效（签出即有效到期前）。RuoYi-Vue 的解法：**JWT 只当索引，Redis 才是真相**。\n\n- 登录 → 生成 UUID → LoginUser（含用户、权限集合）存 Redis，key = `login_tokens:<uuid>`，TTL 30 分钟\n- 签发 JWT：claim 里放 `login_user_key = <uuid>`（**只有 UUID，没有用户信息**）\n- 请求 → 解析 JWT 取 UUID → 去 Redis 取 LoginUser → 恢复身份\n\n好处：管理员可**强制下线**（删 Redis key 即刻生效）、可改权限后让旧态失效、可统计在线人数——纯 JWT 都做不到。\n\n```java path=TokenService-create.java\npublic String createToken(LoginUser loginUser) {\n    String token = IdUtils.fastSimpleUUID();          // 1. UUID\n    loginUser.setToken(token);\n    refreshToken(loginUser);                          // 2. 存 Redis + 续期\n    Map<String, Object> claims = new HashMap<>();\n    claims.put(Constants.LOGIN_USER_KEY, token);      // 3. JWT 只放 UUID\n    return createToken(claims);\n}\n\nprivate void refreshToken(LoginUser loginUser) {\n    loginUser.setLoginTime(System.currentTimeMillis());\n    loginUser.setExpireTime(loginUser.getLoginTime() + expireTimeMs);  // 30 分钟\n    redisCache.setCacheObject(loginTokenKey(loginUser.getToken()), loginUser,\n        expireTimeMs, TimeUnit.MILLISECONDS);\n}\n```\n\n## 每请求三板斧（JwtAuthenticationTokenFilter 内）\n\n```java path=TokenService-verify.java\npublic LoginUser getLoginUser(HttpServletRequest request) {\n    String token = getToken(request);                 // Authorization: Bearer xxx\n    if (token != null) {\n        Claims claims = parseToken(token);            // 验签 + 取 UUID\n        String uuid = (String) claims.get(Constants.LOGIN_USER_KEY);\n        return redisCache.getCacheObject(loginTokenKey(uuid));   // Redis 取登录人\n    }\n    return null;\n}\n\npublic void verifyToken(LoginUser loginUser) {\n    long remain = loginUser.getExpireTime() - System.currentTimeMillis();\n    if (remain <= MILLIS_MINUTE_TEN) {                // 剩余不足 20 分钟\n        refreshToken(loginUser);                      // 续到 30 分钟（滑动续期）\n    }\n}\n```\n\n**滑动续期**：TTL 30 分钟，但只要用户活跃（剩余 <20 分钟时触发），过期时刻被不断推后——活跃用户不掉线，闲置 30 分钟自动登出。",
+  "analogy": "这是「寄存牌 + 储物柜」设计。JWT 是寄存牌——上面只写一个柜号（UUID），没有你的任何隐私；Redis 是储物柜——柜子里放着你的完整资料（用户、权限）。好处：柜子管理员（服务器）可以随时清空某个柜子（强制下线）、换柜内物品（改权限立即生效于下一次取用）。滑动续期像「只要 20 分钟内回来看一眼，柜子使用期自动再延半小时」——常来的客人永远有柜子，超时不来的自动腾柜。",
+  "codeExamples": [
+    {
+      "id": "ry-token-create",
+      "filePath": "ruoyi-framework/src/main/java/com/ruoyi/framework/web/service/TokenService.java",
+      "language": "java",
+      "runnableFileName": "TokenService.java",
+      "summary": "签发与续期核心：UUID 入 Redis、JWT 只装 UUID、30 分钟 TTL。",
+      "sourceNote": "RuoYi-Vue · ruoyi-framework/.../web/service/TokenService.java（教学简化）",
+      "code": "package com.ruoyi.framework.web.service;\n\nimport java.util.HashMap;\nimport java.util.Map;\nimport java.util.concurrent.TimeUnit;\nimport com.ruoyi.common.constant.Constants;\nimport com.ruoyi.common.core.domain.model.LoginUser;\nimport com.ruoyi.common.utils.uuid.IdUtils;\nimport io.jsonwebtoken.Claims;\nimport io.jsonwebtoken.Jwts;\nimport io.jsonwebtoken.SignatureAlgorithm;\nimport io.jsonwebtoken.security.Keys;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class TokenService {\n\n    private static final long MILLIS_MINUTE_TEN = 20 * 60 * 1000L;   // 20 分钟\n    private static final long EXPIRE_MS = 30 * 60 * 1000L;           // 30 分钟\n\n    private final RedisCache redisCache;\n\n    public TokenService(RedisCache redisCache) {\n        this.redisCache = redisCache;\n    }\n\n    public String createToken(LoginUser loginUser) {\n        String token = IdUtils.fastSimpleUUID();\n        loginUser.setToken(token);\n        refreshToken(loginUser);\n\n        Map<String, Object> claims = new HashMap<>();\n        claims.put(Constants.LOGIN_USER_KEY, token);   // JWT 只放 UUID\n        io.jsonwebtoken.security.SecretKey key = Keys.hmacShaKeyFor(secret.getBytes());\n        return Jwts.builder()\n            .claims(claims)\n            .signWith(key, SignatureAlgorithm.HS256)\n            .compact();\n    }\n\n    public void refreshToken(LoginUser loginUser) {\n        loginUser.setExpireTime(System.currentTimeMillis() + EXPIRE_MS);\n        String key = Constants.LOGIN_TOKEN_KEY + loginUser.getToken();\n        redisCache.setCacheObject(key, loginUser, (int) (EXPIRE_MS / 1000), TimeUnit.SECONDS);\n    }\n\n    public void delLoginUser(String token) {\n        redisCache.deleteObject(Constants.LOGIN_TOKEN_KEY + token);   // 强制下线的实现\n    }\n}"
+    },
+    {
+      "id": "ry-token-verify",
+      "filePath": "ruoyi-framework/src/main/java/com/ruoyi/framework/web/service/TokenService.java",
+      "language": "java",
+      "runnableFileName": "TokenVerify.java",
+      "summary": "解析与滑动续期：验签取 UUID → Redis 取人 → 活跃则续到 30 分钟。",
+      "sourceNote": "RuoYi-Vue · ruoyi-framework/.../web/service/TokenService.java（教学简化）",
+      "code": "package com.ruoyi.framework.web.service;\n\nimport com.ruoyi.common.constant.Constants;\nimport com.ruoyi.common.core.domain.model.LoginUser;\nimport io.jsonwebtoken.Claims;\nimport jakarta.servlet.http.HttpServletRequest;\n\npublic class TokenVerify {\n\n    private final TokenService tokenService;\n\n    public TokenVerify(TokenService tokenService) {\n        this.tokenService = tokenService;\n    }\n\n    public LoginUser getLoginUser(HttpServletRequest request) {\n        String bearer = request.getHeader(\"Authorization\");\n        if (bearer == null || !bearer.startsWith(\"Bearer \")) {\n            return null;\n        }\n        String jwt = bearer.substring(7);\n        Claims claims = tokenService.parseToken(jwt);            // 验签失败直接抛异常\n        String uuid = (String) claims.get(Constants.LOGIN_USER_KEY);\n        return tokenService.getLoginUserByUuid(uuid);            // Redis 取登录人（可能已被强制下线）\n    }\n\n    public void verifyToken(LoginUser loginUser) {\n        long remain = loginUser.getExpireTime() - System.currentTimeMillis();\n        if (remain <= TokenService.MILLIS_MINUTE_TEN) {\n            tokenService.refreshToken(loginUser);                // 活跃用户滑动续期\n        }\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「RuoYi 的 JWT 里存着用户信息和权限」——JWT 只有一个 UUID claim；用户与权限在 Redis 的 LoginUser 里，这正是不敢把敏感信息放进明文 Payload 的体现。",
+    "「纯 JWT 无法实现强制下线是夸张说法」——纯 JWT 确实做不到即时作废；RuoYi 能踢人恰恰因为引入了 Redis 这一层。",
+    "「TTL 30 分钟意味着每 30 分钟必须重新登录」——滑动续期让活跃用户永续；只有连续 30 分钟无任何请求才失效。",
+    "「改了角色权限，在线用户立刻生效」——权限在登录时算好存 Redis；生效需要重登或管理员删除其 Redis 缓存（踢下线）。"
+  ],
+  "tags": ["TokenService", "JWT", "Redis", "滑动续期"],
+  "prereq": ["ry-security-config"]
+}

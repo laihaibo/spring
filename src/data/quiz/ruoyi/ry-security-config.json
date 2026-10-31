@@ -1,0 +1,80 @@
+{
+  "topicId": "ry-security-config",
+  "quizzes": [
+    {
+      "id": "q-rysec-01",
+      "topicId": "ry-security-config",
+      "kind": "single",
+      "question": "接口上写了 @PreAuthorize(\"@ss.hasPermi(...)\" 却完全不生效，最可能漏掉的配置是？",
+      "options": {
+        "A": "BCryptPasswordEncoder Bean",
+        "B": "@EnableMethodSecurity(prePostEnabled = true)",
+        "C": "csrf.disable()",
+        "D": "SessionCreationPolicy.STATELESS"
+      },
+      "answer": "B",
+      "explanation": "@PreAuthorize 属于方法级安全，必须由 @EnableMethodSecurity 开启（旧版为 @EnableGlobalMethodSecurity）。没开时注解不报错、不拦截——静默失效，这正是「写了权限注解却人人可访问」事故的头号原因。",
+      "optionExplanations": {
+        "A": "编码器影响密码校验，不影响注解鉴权。",
+        "B": "正确，方法级鉴权的总开关。",
+        "C": "CSRF 与注解鉴权无关。",
+        "D": "会话策略与注解鉴权无关。"
+      },
+      "designWhy": "「总开关没开」是最隐蔽的配置事故，把注解名直接钉在选项里，遇到就能立刻想到。",
+      "relatedTopicIds": ["sb-security-jwt"]
+    },
+    {
+      "id": "q-rysec-02",
+      "topicId": "ry-security-config",
+      "kind": "single",
+      "question": "addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class) 的意图是什么？",
+      "options": {
+        "A": "让 JWT 过滤器只处理 /login 请求",
+        "B": "把 JWT 身份恢复插到框架认证判断之前，后续授权才能基于已恢复的 SecurityContext",
+        "C": "替换掉用户名密码登录功能",
+        "D": "提高过滤器执行优先级到最高"
+      },
+      "answer": "B",
+      "explanation": "过滤器链按位置执行：JWT 过滤器负责「从 Token 恢复身份 → 放入 SecurityContext」，必须发生在需要身份的认证/授权判断之前。以 UsernamePasswordAuthenticationFilter 为锚点插位是惯用写法——借用它作为「认证阶段」的坐标，并非替换登录功能。",
+      "optionExplanations": {
+        "A": "放行规则在 authorizeHttpRequests 里，与过滤器插位无关。",
+        "B": "正确，插位保证「先恢复身份，再做判断」。",
+        "C": "锚点选择不等于功能替换。",
+        "D": "before 语义是相对位置，不是全局最高。"
+      },
+      "designWhy": "过滤器插位是「装配现场」最难自学的细节：为什么锚定这个类？答对了说明链路时序真的想通了。",
+      "relatedTopicIds": ["sb-security-jwt", "ry-request-lifecycle"]
+    },
+    {
+      "id": "q-rysec-03",
+      "topicId": "ry-security-config",
+      "kind": "code-completion",
+      "codePath": "SecurityConfig.java",
+      "language": "java",
+      "codeTemplate": "@Configuration\n@__1__(prePostEnabled = true)\npublic class SecurityConfig {\n\n    @Bean\n    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {\n        http\n            .csrf(csrf -> csrf.disable())\n            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.__2__))\n            .authorizeHttpRequests(auth -> auth\n                .requestMatchers(\"/login\").__3__()\n                .anyRequest().authenticated())\n            .addFilterBefore(jwtFilter,\n                UsernamePasswordAuthenticationFilter.class);\n        return http.build();\n    }\n}",
+      "blanks": [
+        {
+          "candidates": ["EnableMethodSecurity", "EnableWebSecurity", "ComponentScan"],
+          "answer": "EnableMethodSecurity"
+        },
+        {
+          "candidates": ["STATELESS", "ALWAYS", "IF_REQUIRED"],
+          "answer": "STATELESS"
+        },
+        {
+          "candidates": ["permitAll", "authenticated", "denyAll"],
+          "answer": "permitAll"
+        }
+      ],
+      "question": "补全无状态安全总装配：方法级鉴权开关？无状态会话策略？登录接口的放行规则？",
+      "explanation": "三个核心装配点：@EnableMethodSecurity 开启 @PreAuthorize；STATELESS 声明不创建会话（JWT 方案）；permitAll 放行登录端点——三者与 addFilterBefore 构成 RuoYi-Vue SecurityConfig 的全部主干。",
+      "optionExplanations": {
+        "空1": "prePostEnabled 参数属于 @EnableMethodSecurity。",
+        "空2": "JWT 方案必须 STATELESS；ALWAYS/IF_REQUIRED 都会创建会话。",
+        "空3": "登录接口必须放行，否则连 Token 都拿不到。"
+      },
+      "designWhy": "总装配四个关键点的最后三个合并成一段可默写的模板——填完即具备手写 SecurityConfig 的能力。",
+      "relatedTopicIds": ["sb-security-jwt", "ry-jwt-token-service"]
+    }
+  ]
+}

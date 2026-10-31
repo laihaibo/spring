@@ -1,0 +1,37 @@
+{
+  "id": "ry-data-scope-aspect",
+  "track": "ruoyi",
+  "level": 3,
+  "title": "源码精读 DataScopeAspect：数据权限的 SQL 魔术",
+  "brief": "一个 @Before 切面把「本部门/仅本人」翻译成 SQL 片段塞进查询——五档 data_scope 的拼接规则全解。",
+  "explanation": "## 使用方式（两行注解）\n\n```java path=SysUserServiceImpl.java\n@DataScope(deptAlias = \"d\", userAlias = \"u\")     // 别名对应 Mapper XML 里的表别名\npublic List<SysUser> selectUserList(SysUser user) {\n    return userMapper.selectUserList(user);\n}\n```\n\n```xml path=SysUserMapper.xml\n<select id=\"selectUserList\" resultMap=\"SysUserResult\">\n    SELECT d.dept_id, u.user_id, u.nick_name\n    FROM sys_user u\n    LEFT JOIN sys_dept d ON u.dept_id = d.dept_id\n    WHERE u.del_flag = '0'\n    ${params.dataScope}          <!-- 切面塞进来的条件，如 AND (d.dept_id = 100) -->\n</select>\n```\n\n## 切面干了什么（@Before）\n\n```java path=DataScopeAspect.java\n@Before(\"@annotation(controllerDataScope)\")\npublic void doBefore(JoinPoint point, DataScope controllerDataScope) {\n    clearDataScope(point);                       // 先清旧值，防 ThreadLocal 污染\n    LoginUser loginUser = SecurityUtils.getLoginUser();\n    if (loginUser.getUser().isAdmin()) return;   // 管理员看全部，不拼条件\n\n    StringBuilder sqlString = new StringBuilder();\n    for (SysRole role : loginUser.getUser().getRoles()) {\n        String dataScope = role.getDataScope();\n        switch (dataScope) {\n            case \"1\" -> { sqlString = new StringBuilder(); return; }  // 全部：清空条件直接放行\n            case \"2\" -> sqlString.append(String.format(\n                \" OR dept_id IN (SELECT dept_id FROM sys_role_dept WHERE role_id = %s)\",\n                role.getRoleId()));                                    // 自定义：走授权部门表\n            case \"3\" -> sqlString.append(String.format(\n                \" OR dept_id = %s\", user.getDeptId()));                // 本部门\n            case \"4\" -> sqlString.append(String.format(\n                \" OR dept_id IN (SELECT dept_id FROM sys_dept WHERE dept_id = %s OR find_in_set(%d, ancestors))\",\n                user.getDeptId(), user.getDeptId()));                  // 本部门及以下\n            case \"5\" -> sqlString.append(String.format(\n                \" OR user_id = %d\", user.getUserId()));                // 仅本人\n        }\n    }\n    // 多角色条件 OR 合并后包一层，塞进 BaseEntity.params\n    if (sqlString.length() > 0) {\n        BaseEntity baseEntity = (BaseEntity) point.getArgs()[0];\n        baseEntity.getParams().put(DATA_SCOPE, \" AND (\" + sqlString.substring(4) + \")\");\n    }\n}\n```\n\n## 四个关键细节\n\n1. **`${params.dataScope}` 是字符串拼接**，不是 #{} 参数绑定——但值只由切面用受控数据（角色/部门 ID）生成，不接受外部输入，注入面封闭。自己二开时**绝不能**把前端参数塞进 params.dataScope\n2. **多角色取并集**：每个角色生成 `OR ...`，最终 `AND (A OR B)`——能看并集是合理语义\n3. **先 clearDataScope 再拼**：防止上一次请求的 ThreadLocal/参数残留（尤其异步任务复用对象时）\n4. **注解里的 deptAlias/userAlias**：为了让拼出的条件带上正确的表别名（`d.dept_id` 而不是裸 `dept_id`）——多表 JOIN 场景的必需品",
+  "analogy": "DataScopeAspect 是报表系统里的「数据围栏装配工」。领导下指标：「经理 A 只能看本部门报表」（data_scope=3），装配工不修改报表内容本身，而是在每份报表装订前，往固定插槽（params.dataScope）里插一张过滤卡：「只装订 dept_id=100 的页」。多岗位的人（多角色）会拿到多张卡，能看的取并集（OR）。清插槽动作（clearDataScope）是防「上一份报表的卡忘拿出来，混进下一份」。${} 是插槽的开口——平时由装配工统一装卡，但如果有人私自往插槽塞东西（外部输入直通 params），报表就会被塞进不该有的内容（SQL 注入）。",
+  "codeExamples": [
+    {
+      "id": "ry-ds-aspect",
+      "filePath": "ruoyi-framework/src/main/java/com/ruoyi/framework/aspectj/DataScopeAspect.java",
+      "language": "java",
+      "runnableFileName": "DataScopeAspect.java",
+      "summary": "切面主干：清旧值 → 管理员放行 → 按 data_scope 拼 SQL → 塞进 params。",
+      "sourceNote": "RuoYi-Vue · ruoyi-framework/.../aspectj/DataScopeAspect.java（教学简化）",
+      "code": "package com.ruoyi.framework.aspectj;\n\nimport com.ruoyi.common.core.domain.BaseEntity;\nimport com.ruoyi.common.core.domain.model.LoginUser;\nimport com.ruoyi.framework.security.context.SecurityContextUtils;\nimport org.aspectj.lang.JoinPoint;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Before;\nimport org.springframework.stereotype.Component;\n\n@Aspect\n@Component\npublic class DataScopeAspect {\n\n    public static final String DATA_SCOPE = \"dataScope\";\n\n    @Before(\"@annotation(controllerDataScope)\")\n    public void doBefore(JoinPoint point, com.ruoyi.common.annotation.DataScope controllerDataScope) {\n        clearDataScope(point);\n        LoginUser loginUser = SecurityContextUtils.getLoginUser();\n        if (loginUser == null || loginUser.getUser().isAdmin()) {\n            return;   // 管理员不围栏\n        }\n        StringBuilder sql = new StringBuilder();\n        for (var role : loginUser.getUser().getRoles()) {\n            switch (role.getDataScope()) {\n                case \"1\" -> {\n                    sql.setLength(0);\n                    return;\n                }\n                case \"2\" -> sql.append(String.format(\n                    \" OR dept_id IN (SELECT dept_id FROM sys_role_dept WHERE role_id = %d)\",\n                    role.getRoleId()));\n                case \"3\" -> sql.append(String.format(\n                    \" OR dept_id = %d\", loginUser.getUser().getDeptId()));\n                case \"5\" -> sql.append(String.format(\n                    \" OR user_id = %d\", loginUser.getUser().getUserId()));\n                default -> { }\n            }\n        }\n        if (sql.length() > 0) {\n            Object arg = point.getArgs()[0];\n            if (arg instanceof BaseEntity entity) {\n                entity.getParams().put(DATA_SCOPE, \" AND (\" + sql.substring(4) + \")\");\n            }\n        }\n    }\n\n    /** 防残留：复用对象前先清掉上一次的过滤条件 */\n    private void clearDataScope(JoinPoint joinPoint) {\n        Object arg = joinPoint.getArgs()[0];\n        if (arg instanceof BaseEntity entity) {\n            entity.getParams().put(DATA_SCOPE, \"\");\n        }\n    }\n}"
+    },
+    {
+      "id": "ry-ds-mapper",
+      "filePath": "ruoyi-system/src/main/resources/mapper/system/SysUserMapper.xml",
+      "language": "xml",
+      "runnableFileName": "SysUserMapper.xml",
+      "summary": "Mapper 侧的插槽：${params.dataScope} 拼进 WHERE；对比 #{} 参数绑定的正确用途。",
+      "sourceNote": "RuoYi-Vue · ruoyi-system/.../mapper/system/SysUserMapper.xml（节选）",
+      "code": "<select id=\"selectUserList\" parameterType=\"SysUser\" resultMap=\"SysUserResult\">\n    SELECT u.user_id, u.nick_name, d.dept_name\n    FROM sys_user u\n    LEFT JOIN sys_dept d ON u.dept_id = d.dept_id\n    WHERE u.del_flag = '0'\n      <if test=\"userName != null and userName != ''\">\n          AND u.user_name LIKE concat('%', #{userName}, '%')\n      </if>\n      <if test=\"deptId != null and deptId != ''\">\n          AND (u.dept_id = #{deptId} OR u.dept_id IN (\n              SELECT d.dept_id FROM sys_dept d\n              WHERE find_in_set(#{deptId}, ancestors)))\n      </if>\n      <!-- 数据权限插槽：值只由 DataScopeAspect 用登录人数据生成 -->\n      ${params.dataScope}\n</select>\n\n<!-- 注意区分：用户输入全部走 #{} 预编译绑定；\n     ${} 只用于切面受控生成的片段，二者绝不混用 -->"
+    }
+  ],
+  "misconceptions": [
+    "「${params.dataScope} 是 SQL 注入漏洞」——注入片段完全由切面从登录人的角色/部门 ID 生成，外部输入无法触达；真正的漏洞是把前端参数塞进这个插槽。",
+    "「多角色用户的数据权限取交集」——OR 合并取并集：有「仅本人」和「本部门」两个角色，能看到本部门全部+自己的行。",
+    "「@DataScope 标在 Controller 上」——它切的是 Service 方法（切面取的第一个参数是查询实体），标错层不生效。",
+    "「切面自动生效不用管别名」——多表 JOIN 时必须传 deptAlias/userAlias，否则拼出无别名的裸列名直接 SQL 报错。"
+  ],
+  "tags": ["DataScope", "数据权限", "AOP", "源码"],
+  "prereq": ["ry-rbac-model", "aop-advice-types"]
+}

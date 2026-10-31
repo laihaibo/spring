@@ -1,0 +1,37 @@
+{
+  "id": "ry-request-lifecycle",
+  "track": "ruoyi",
+  "level": 1,
+  "title": "请求生命周期：从 HTTP 到 JSON 的完整旅程",
+  "brief": "一次列表请求要走过滤链、鉴权、Controller、分页、Service、Mapper、AOP 日志七道工序——全链路心智地图。",
+  "explanation": "## 全链路（以 GET /system/user/list 为例）\n\n```\nHTTP Request\n  └→ 1. 过滤器链（JwtAuthenticationTokenFilter）\n        解析 Authorization 头 → 查 Redis 恢复 LoginUser → 放入 SecurityContext\n  └→ 2. Spring Security 授权\n        SecurityConfig 规则校验：hasPermi 注解在方法层做细粒度校验\n  └→ 3. Controller（SysUserController）\n        startPage() 开启 PageHelper 分页 → 调用 service.selectUserList(user)\n  └→ 4. AOP 横切（同时发生）\n        @Log 注解切面记录操作日志（异步入库）；@DataScope 拼数据权限 SQL\n  └→ 5. Service（SysUserServiceImpl）\n        业务逻辑 → 组装查询条件\n  └→ 6. Mapper（SysUserMapper.xml）\n        SQL 执行；${params.dataScope} 被切面塞入的权限条件拼进 WHERE\n  └→ 7. 返回\n        getDataTable(list) → TableDataInfo{total, rows} → JSON 序列化 → 前端\n```\n\n## 三个关键角色\n\n- **JwtAuthenticationTokenFilter**：每个请求都要过，负责「从 Token 还原登录人」（无状态方案的请求级入口）\n- **@Log 切面**：操作日志以 AOP 记录、异步保存——Controller 里没有任何日志代码\n- **PageHelper**：`startPage()` 把分页参数放进 ThreadLocal，紧随其后的**第一条**查询自动拼 LIMIT——顺序错了分页失效（startPage 后不能插别的查询）\n\n## 为什么这个链路值得背\n\n排查问题时按链定位：401 → 过滤器/Token；403 → 授权规则/@PreAuthorize；数据多了/少了 → @DataScope；没分页 → startPage 顺序；慢 → Mapper SQL。整条链就是 RuoYi 的「检修路线图」。",
+  "analogy": "一次请求是「访客入园全流程」。门口检票（JWT 过滤器验 Token 恢复身份手环）→ 园区权限闸机（Security 判断能否进这个区）→ 服务台登记需求（Controller 收参数）→ 园区规章随行监督（AOP：@Log 像跟拍摄像，@DataScope 像限定你只能逛指定区域）→ 内部导游安排路线（Service）→ 按图索骥去仓库取货（Mapper 查库）→ 出口打包成伴手礼（JSON 序列化）。任何一关卡住，游客拿到的回复都不一样——凭回复形状就能反推卡在哪道关。",
+  "codeExamples": [
+    {
+      "id": "ry-life-controller",
+      "filePath": "ruoyi-admin/src/main/java/com/ruoyi/web/controller/system/SysUserController.java",
+      "language": "java",
+      "runnableFileName": "SysUserController.java",
+      "summary": "列表接口的真实形态：@PreAuthorize 权限 + startPage 分页 + getDataTable 包装，共四行主干。",
+      "sourceNote": "RuoYi-Vue · ruoyi-admin/.../system/SysUserController.java（节选简化）",
+      "code": "package com.ruoyi.web.controller.system;\n\nimport com.ruoyi.common.core.controller.BaseController;\nimport com.ruoyi.common.core.domain.AjaxResult;\nimport com.ruoyi.common.core.page.TableDataInfo;\nimport com.ruoyi.common.annotation.Log;\nimport com.ruoyi.common.enums.BusinessType;\nimport com.ruoyi.system.domain.SysUser;\nimport com.ruoyi.system.service.ISysUserService;\nimport org.springframework.security.access.prepost.PreAuthorize;\nimport org.springframework.web.bind.annotation.GetMapping;\nimport org.springframework.web.bind.annotation.RequestMapping;\nimport org.springframework.web.bind.annotation.RestController;\nimport java.util.List;\n\n@RestController\n@RequestMapping(\"/system/user\")\npublic class SysUserController extends BaseController {\n\n    private final ISysUserService userService;\n\n    public SysUserController(ISysUserService userService) {\n        this.userService = userService;\n    }\n\n    @PreAuthorize(\"@ss.hasPermi('system:user:list')\")   // 权限字符串校验\n    @GetMapping(\"/list\")\n    public TableDataInfo list(SysUser user) {\n        startPage();                                      // PageHelper 分页开关\n        List<SysUser> list = userService.selectUserList(user); // 紧随其后的查询自动分页\n        return getDataTable(list);                        // {total, rows} 结构\n    }\n}"
+    },
+    {
+      "id": "ry-life-filter",
+      "filePath": "ruoyi-framework/src/main/java/com/ruoyi/framework/security/filter/JwtAuthenticationTokenFilter.java",
+      "language": "java",
+      "runnableFileName": "JwtAuthenticationTokenFilter.java",
+      "summary": "每个请求的第一道工序：从 Token 还原登录人并放入 SecurityContext。",
+      "sourceNote": "RuoYi-Vue · ruoyi-framework/.../security/filter/JwtAuthenticationTokenFilter.java（节选简化）",
+      "code": "package com.ruoyi.framework.security.filter;\n\nimport java.io.IOException;\nimport com.ruoyi.common.core.domain.model.LoginUser;\nimport com.ruoyi.framework.web.service.TokenService;\nimport jakarta.servlet.FilterChain;\nimport jakarta.servlet.ServletException;\nimport jakarta.servlet.http.HttpServletRequest;\nimport jakarta.servlet.http.HttpServletResponse;\nimport org.springframework.security.core.context.SecurityContextHolder;\nimport org.springframework.stereotype.Component;\nimport org.springframework.web.filter.OncePerRequestFilter;\n\n@Component\npublic class JwtAuthenticationTokenFilter extends OncePerRequestFilter {\n\n    private final TokenService tokenService;\n\n    public JwtAuthenticationTokenFilter(TokenService tokenService) {\n        this.tokenService = tokenService;\n    }\n\n    @Override\n    protected void doFilterInternal(HttpServletRequest request,\n                                    HttpServletResponse response,\n                                    FilterChain chain) throws ServletException, IOException {\n        LoginUser loginUser = tokenService.getLoginUser(request);   // 1. 解析 Token → Redis 取登录人\n        if (loginUser != null\n            && SecurityContextHolder.getContext().getAuthentication() == null) {\n            tokenService.verifyToken(loginUser);                    // 2. 滑动续期\n            var authentication = tokenService.createLoginUserAuthentication(loginUser);\n            SecurityContextHolder.getContext().setAuthentication(authentication); // 3. 放入上下文\n        }\n        chain.doFilter(request, response);                          // 4. 继续过滤链\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「startPage() 加在哪一行都行」——它作用于紧随其后的第一条 SQL；中间插入其他查询会导致分页错位，这是 PageHelper 的经典坑。",
+    "「Controller 里的 @Log 会同步写库拖慢请求」——操作日志切面是异步保存的，不影响主链路耗时。",
+    "「JWT 校验发生在 Controller 注解上」——Token 解析在过滤器链入口已完成，Controller 拿到时登录人已就位；@PreAuthorize 做的是权限（能干什么）而非认证（你是谁）。",
+    "「Service 抛异常前端会收到 500 白页」——异常被全局处理器转成统一 JSON（ AjaxResult），链路终点永远是结构化响应。"
+  ],
+  "tags": ["RuoYi", "请求链路", "PageHelper", "AOP"],
+  "prereq": ["ry-architecture", "sb-security-jwt"]
+}

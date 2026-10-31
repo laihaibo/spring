@@ -1,0 +1,63 @@
+{
+  "topicId": "ry-common-module",
+  "quizzes": [
+    {
+      "id": "q-rycm-01",
+      "topicId": "ry-common-module",
+      "kind": "single",
+      "question": "BaseEntity 的 params 字段被 @JsonIgnore 保护（或前端无法注入），核心安全考虑是什么？",
+      "options": {
+        "A": "减少 JSON 序列化体积",
+        "B": "防止外部请求直接写入 params.dataScope，绕过数据权限拼接恶意 SQL 片段",
+        "C": "避免与前端框架的响应格式冲突",
+        "D": "params 只在日志中使用，无需暴露"
+      },
+      "answer": "B",
+      "explanation": "params.dataScope 是 DataScopeAspect 塞 SQL 的插槽——如果前端能直接传 dataScope 字段进实体，就等于把 SQL 片段的控制权交给了外部，${} 拼接立刻变成注入漏洞。切断外部注入通道是该字段的核心安全设计。",
+      "optionExplanations": {
+        "A": "体积无关安全，本题考的是注入面。",
+        "B": "正确：插槽只允许服务端切面写入。",
+        "C": "与前端格式无关。",
+        "D": "params 在数据权限与日期范围查询中都是核心通道。"
+      },
+      "designWhy": "common 层的安全细节最容易被忽略：把 @JsonIgnore 与数据权限注入面串起来，检验的是跨模块的安全串联理解。",
+      "relatedTopicIds": ["ry-data-scope-aspect"]
+    },
+    {
+      "id": "q-rycm-02",
+      "topicId": "ry-common-module",
+      "kind": "judge",
+      "question": "RuoYi 的分页机制中，Service 方法完全不知道分页的存在——分页参数与 LIMIT 拼接都发生在 Controller/拦截层。",
+      "answer": true,
+      "explanation": "startPage() 在 Controller 里从 HTTP 参数取 pageNum/pageSize 交给 PageHelper（ThreadLocal），其后的第一条 SQL 由 PageHelper 拦截器自动拼 LIMIT——Service/SQL 保持纯粹。这也是「startPage 必须紧邻查询」纪律的来源。",
+      "optionExplanations": {
+        "true": "正确：分页是横切关注点，业务层零感知。",
+        "false": "若 Service 要手动分页，PageHelper 的侵入式优势就没了。"
+      },
+      "designWhy": "「业务层零感知」是评价一套分页方案设计好坏的核心，也是排查分页问题时必须先建立的心智模型。",
+      "relatedTopicIds": ["ry-request-lifecycle"]
+    },
+    {
+      "id": "q-rycm-03",
+      "topicId": "ry-common-module",
+      "kind": "multiple",
+      "question": "关于 ruoyi-common 中组件的用途，配对正确的有哪些？（多选）",
+      "options": {
+        "A": "AjaxResult——统一响应结构 {code, msg, data}",
+        "B": "TableDataInfo——分页响应结构 {total, rows}",
+        "C": "SecurityUtils——获取当前登录用户与权限",
+        "D": "BaseEntity——负责登录鉴权的基类"
+      },
+      "answers": ["A", "B", "C"],
+      "explanation": "A/B/C 是三件套的真实用途；D 错了——BaseEntity 是实体基类（审计字段 + params 容器），与鉴权无关，鉴权相关的是 SecurityUtils/LoginUser。",
+      "optionExplanations": {
+        "A": "正确，全局唯一响应结构。",
+        "B": "正确，列表接口专用。",
+        "C": "正确， anywhere 取当前登录人。",
+        "D": "实体基类与鉴权无关，混为一谈说明 common 组件还没认清。"
+      },
+      "designWhy": "写「RuoYi 味」代码的第一步是认清 common 工具箱；配对题用最短路径检验组件名与职责的对应。",
+      "relatedTopicIds": ["ry-request-lifecycle"]
+    }
+  ]
+}

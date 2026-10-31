@@ -1,0 +1,63 @@
+{
+  "topicId": "ry-rbac-model",
+  "quizzes": [
+    {
+      "id": "q-ryrb-01",
+      "topicId": "ry-rbac-model",
+      "kind": "single",
+      "question": "用户请求 /system/user/remove 时，后端 @ss.hasPermi('system:user:remove') 校验的字符串来自哪张表？",
+      "options": {
+        "A": "sys_user 的 perms 字段",
+        "B": "sys_role 的 role_key 字段",
+        "C": "sys_menu 的 perms 字段（经角色关联间接归属到用户）",
+        "D": "sys_user_role 的 menu_id"
+      },
+      "answer": "C",
+      "explanation": "权限字符串定义在 sys_menu.perms；通过 sys_role_menu 归属到角色，再经 sys_user_role 归属到用户。登录时一次性查出并缓存在 LoginUser。role_key 是角色标识（v-hasRole 用），不是接口权限。",
+      "optionExplanations": {
+        "A": "sys_user 没有权限字段，用户只与角色关联。",
+        "B": "role_key 是角色标识符，接口权限在 menu 表。",
+        "C": "正确，perms 定义于菜单表、经两级关联表归属到用户。",
+        "D": "关联表只有 id 对，没有权限字符串。"
+      },
+      "designWhy": "「一个字符串，五张表流转」是 RBAC 模型的主线，答对它说明整条关联链在脑子里是通的。",
+      "relatedTopicIds": ["ry-user-realm"]
+    },
+    {
+      "id": "q-ryrb-02",
+      "topicId": "ry-rbac-model",
+      "kind": "judge",
+      "question": "前端按钮用 v-hasPermi 控制了显隐，后端接口就可以不再加 @ss.hasPermi 校验。",
+      "answer": false,
+      "explanation": "前端显隐只是体验层优化——抓包、直连接口都能绕过。后端 @ss.hasPermi（或 @PreAuthorize）才是安全边界。正确姿势：前后端引用同一份 perms 字符串，前端管体验、后端管安全。",
+      "optionExplanations": {
+        "true": "靠前端隐藏接口权限是真实项目里最常见的安全事故来源之一。",
+        "false": "正确：安全校验永远以服务端为准。"
+      },
+      "designWhy": "把「前端显隐 ≠ 安全」钉死，这条判断在真实二开里每天都在被违反。",
+      "relatedTopicIds": ["sb-security-jwt"]
+    },
+    {
+      "id": "q-ryrb-03",
+      "topicId": "ry-rbac-model",
+      "kind": "multiple",
+      "question": "关于 sys_role.data_scope 字段，正确的有哪些？（多选）",
+      "options": {
+        "A": "它控制的是「行级数据可见范围」，与功能权限（能否调接口）是两个维度",
+        "B": "取值 1=全部、3=本部门、5=仅本人",
+        "C": "它的生效机制是 AOP 切面动态拼接 SQL 条件",
+        "D": "它存放在 sys_user 表上，按用户粒度配置"
+      },
+      "answers": ["A", "B", "C"],
+      "explanation": "data_scope 在 sys_role 上（D 错），是数据权限维度：功能权限决定「能否访问用户列表接口」，数据权限决定「列表里能看到谁的行」。实现机制是 @DataScope 切面按该字段拼 SQL（详见 DataScopeAspect 一讲）。",
+      "optionExplanations": {
+        "A": "正确，功能权限与数据权限正交。",
+        "B": "正确，1/3/5 是五个枚举中的三个。",
+        "C": "正确，切面拼 SQL 是它的实现方式。",
+        "D": "它在 sys_role 表上，按角色配置。"
+      },
+      "designWhy": "数据权限是 RBAC 的第五维，也是 RuoYi 精髓之一；三个正确项分别覆盖「是什么、有哪些值、怎么生效」。",
+      "relatedTopicIds": ["ry-data-scope-aspect"]
+    }
+  ]
+}

@@ -52,6 +52,29 @@ import sbRedisCacheQuiz from "@/data/quiz/springboot/sb-redis-cache.json";
 import sbExceptionHandlingQuiz from "@/data/quiz/springboot/sb-exception-handling.json";
 import sbLoggingQuiz from "@/data/quiz/springboot/sb-logging.json";
 
+/* ---- RuoYi（第三批） ---- */
+import ryArchitecture from "@/data/topics/ruoyi/ry-architecture.json";
+import ryRequestLifecycle from "@/data/topics/ruoyi/ry-request-lifecycle.json";
+import ryRbacModel from "@/data/topics/ruoyi/ry-rbac-model.json";
+import ryShiroVsSecurity from "@/data/topics/ruoyi/ry-shiro-vs-security.json";
+import ryUserRealm from "@/data/topics/ruoyi/ry-user-realm.json";
+import rySecurityConfig from "@/data/topics/ruoyi/ry-security-config.json";
+import ryJwtTokenService from "@/data/topics/ruoyi/ry-jwt-token-service.json";
+import ryDataScopeAspect from "@/data/topics/ruoyi/ry-data-scope-aspect.json";
+import ryCodeGenerator from "@/data/topics/ruoyi/ry-code-generator.json";
+import ryCommonModule from "@/data/topics/ruoyi/ry-common-module.json";
+
+import ryArchitectureQuiz from "@/data/quiz/ruoyi/ry-architecture.json";
+import ryRequestLifecycleQuiz from "@/data/quiz/ruoyi/ry-request-lifecycle.json";
+import ryRbacModelQuiz from "@/data/quiz/ruoyi/ry-rbac-model.json";
+import ryShiroVsSecurityQuiz from "@/data/quiz/ruoyi/ry-shiro-vs-security.json";
+import ryUserRealmQuiz from "@/data/quiz/ruoyi/ry-user-realm.json";
+import rySecurityConfigQuiz from "@/data/quiz/ruoyi/ry-security-config.json";
+import ryJwtTokenServiceQuiz from "@/data/quiz/ruoyi/ry-jwt-token-service.json";
+import ryDataScopeAspectQuiz from "@/data/quiz/ruoyi/ry-data-scope-aspect.json";
+import ryCodeGeneratorQuiz from "@/data/quiz/ruoyi/ry-code-generator.json";
+import ryCommonModuleQuiz from "@/data/quiz/ruoyi/ry-common-module.json";
+
 export const TRACKS: Track[] = ["spring", "springboot", "ruoyi"];
 
 export const TRACK_META: Record<
@@ -123,7 +146,20 @@ export const SPRINGBOOT_TOPICS: Topic[] = [
   { ...topic(sbLogging), quiz: quizzes(sbLoggingQuiz) },
 ];
 
-export const ALL_TOPICS: Topic[] = [...SPRING_TOPICS, ...SPRINGBOOT_TOPICS];
+export const RUOYI_TOPICS: Topic[] = [
+  { ...topic(ryArchitecture), quiz: quizzes(ryArchitectureQuiz) },
+  { ...topic(ryRequestLifecycle), quiz: quizzes(ryRequestLifecycleQuiz) },
+  { ...topic(ryRbacModel), quiz: quizzes(ryRbacModelQuiz) },
+  { ...topic(ryShiroVsSecurity), quiz: quizzes(ryShiroVsSecurityQuiz) },
+  { ...topic(ryUserRealm), quiz: quizzes(ryUserRealmQuiz) },
+  { ...topic(rySecurityConfig), quiz: quizzes(rySecurityConfigQuiz) },
+  { ...topic(ryJwtTokenService), quiz: quizzes(ryJwtTokenServiceQuiz) },
+  { ...topic(ryDataScopeAspect), quiz: quizzes(ryDataScopeAspectQuiz) },
+  { ...topic(ryCodeGenerator), quiz: quizzes(ryCodeGeneratorQuiz) },
+  { ...topic(ryCommonModule), quiz: quizzes(ryCommonModuleQuiz) },
+];
+
+export const ALL_TOPICS: Topic[] = [...SPRING_TOPICS, ...SPRINGBOOT_TOPICS, ...RUOYI_TOPICS];
 
 const TOPIC_MAP = new Map(ALL_TOPICS.map((t) => [t.id, t]));
 

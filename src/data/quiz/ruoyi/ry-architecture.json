@@ -1,0 +1,66 @@
+{
+  "topicId": "ry-architecture",
+  "quizzes": [
+    {
+      "id": "q-ryarch-01",
+      "topicId": "ry-architecture",
+      "kind": "single",
+      "question": "RuoYi-Vue 的六模块中，Spring Security 配置、JWT 过滤器、数据源配置应该放在哪个模块？",
+      "options": {
+        "A": "ruoyi-admin——启动类在这里，配置也该在这里",
+        "B": "ruoyi-framework——框架核心配置模块",
+        "C": "ruoyi-common——通用工具模块",
+        "D": "ruoyi-system——系统业务模块"
+      },
+      "answer": "B",
+      "explanation": "framework 的定位就是「框架核心配置」：SecurityConfig、JwtAuthenticationTokenFilter、Druid 数据源、AOP 切面、拦截器都在这里。admin 只做启动与聚合；common 是纯工具底座；system 是业务。",
+      "optionExplanations": {
+        "A": "admin 负责启动与聚合，不放基建配置。",
+        "B": "正确，SecurityConfig 的真实路径就是 ruoyi-framework/.../config/SecurityConfig.java。",
+        "C": "common 不依赖 Spring Security 的上下文，放这里会导致依赖反向。",
+        "D": "system 只放业务（用户/角色/菜单）。"
+      },
+      "designWhy": "「新代码该放哪个模块」是接手 RuoYi 的第一个问题，用 SecurityConfig 的真实归属锚定六模块的职责边界。",
+      "relatedTopicIds": ["sb-application-class"]
+    },
+    {
+      "id": "q-ryarch-02",
+      "topicId": "ry-architecture",
+      "kind": "judge",
+      "question": "为了图方便，可以在 ruoyi-common 里直接引入 ruoyi-system 的依赖，复用用户查询方法。",
+      "answer": false,
+      "explanation": "common 是被所有模块依赖的底座，反向依赖业务模块会形成循环依赖，Maven 直接构建失败。需要复用业务方法，正确做法是把公共部分下沉到 common，或在依赖链更上游的模块里组合调用。",
+      "optionExplanations": {
+        "true": "common → system 会与 system → common 形成环，Maven 拒绝构建。",
+        "false": "common 的独立性是六模块架构成立的前提。"
+      },
+      "designWhy": "依赖方向铁律是六模块架构的唯一硬约束，用最诱人的「图方便」场景来钉住它。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-ryarch-03",
+      "topicId": "ry-architecture",
+      "kind": "code-reading",
+      "codePath": "maven-dependency-tree.txt",
+      "language": "ansi",
+      "code": "ruoyi-admin\n ├── ruoyi-framework\n │    ├── ruoyi-system\n │    │    └── ruoyi-common\n │    └── ruoyi-common\n ├── ruoyi-quartz\n │    └── ruoyi-common\n ├── ruoyi-generator\n │    └── ruoyi-common\n └── ruoyi-system\n      └── ruoyi-common\n\n# spring-boot-maven-plugin 只配置在 ruoyi-admin",
+      "question": "根据依赖树，执行 mvn package 后哪个模块会产出可执行的 Spring Boot fat jar？",
+      "options": {
+        "A": "ruoyi-framework，它依赖最多",
+        "B": "ruoyi-admin，只有它配置了 spring-boot-maven-plugin",
+        "C": "ruoyi-common，它被所有模块依赖",
+        "D": "每个模块都会产出一个 fat jar"
+      },
+      "answer": "B",
+      "explanation": "能否打出可执行 fat jar 取决于 spring-boot-maven-plugin，而 RuoYi 只在 admin 模块配置它——admin 是聚合入口，打包时把 framework/system/quartz/generator/common 全部塞进 jar。其余模块产出普通 jar（library）。",
+      "optionExplanations": {
+        "A": "依赖多少与打包方式无关。",
+        "B": "正确，打包插件决定 fat jar 的产出位置。",
+        "C": "common 是纯工具库，产出普通 jar。",
+        "D": "只有配置了插件的模块才打 fat jar。"
+      },
+      "designWhy": "多模块工程「从哪打包、deploy 什么」是真实运维问题，用依赖树读图题建立「admin = 唯一交付物」的认知。",
+      "relatedTopicIds": ["sb-starter"]
+    }
+  ]
+}

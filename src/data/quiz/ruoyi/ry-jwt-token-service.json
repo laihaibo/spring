@@ -1,0 +1,72 @@
+{
+  "topicId": "ry-jwt-token-service",
+  "quizzes": [
+    {
+      "id": "q-rytk-01",
+      "topicId": "ry-jwt-token-service",
+      "kind": "single",
+      "question": "RuoYi-Vue 签发的 JWT 里实际携带了什么内容？",
+      "options": {
+        "A": "完整的用户信息与权限集合",
+        "B": "只有一个 UUID claim（login_user_key），真正的登录态在 Redis",
+        "C": "用户名和密码的加密串",
+        "D": "登录时间与 IP"
+      },
+      "answer": "B",
+      "explanation": "JWT 只当索引：claim 里放 login_user_key=UUID，Redis key login_tokens:<uuid> 才存 LoginUser 全量。这样既避免敏感信息进明文 Payload，又获得了强制下线/权限即时失效的能力。",
+      "optionExplanations": {
+        "A": "把权限放 JWT 就无法主动作废了，也与 RuoYi 源码不符。",
+        "B": "正确，JWT 是索引、Redis 是真相。",
+        "C": "密码从不进 Token。",
+        "D": "这些属于审计信息，不在签发范围。"
+      },
+      "designWhy": "「双牌设计」是 RuoYi 安全模块最精巧的一点，也是理解它为何既能无状态又能踢人的核心。",
+      "relatedTopicIds": ["sb-security-jwt", "ry-user-realm"]
+    },
+    {
+      "id": "q-rytk-02",
+      "topicId": "ry-jwt-token-service",
+      "kind": "judge",
+      "question": "TokenService 的滑动续期机制下，一个每 10 分钟发一次请求的用户永远不会因过期被登出。",
+      "answer": true,
+      "explanation": "续期条件是「剩余有效期 < 20 分钟」：每 10 分钟活跃一次的用户，第三次请求时剩余约 10 分钟，触发续期刷新到 30 分钟——活跃用户被不断续命。只有连续 30 分钟无请求才真正过期。",
+      "optionExplanations": {
+        "true": "正确，滑动续期的设计目标就是活跃用户不掉线。",
+        "false": "若不触发续期，TTL 到点就会失效，与源码行为不符。"
+      },
+      "designWhy": "用「10 分钟一次」的具体节奏验证对续期条件的量化理解，而不是记住「有续期」三个字。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-rytk-03",
+      "topicId": "ry-jwt-token-service",
+      "kind": "code-completion",
+      "codePath": "TokenService.java",
+      "language": "java",
+      "codeTemplate": "public String createToken(LoginUser loginUser) {\n    String token = IdUtils.fastSimpleUUID();          // 生成 __1__\n    loginUser.setToken(token);\n    refreshToken(loginUser);                          // LoginUser 存 __2__，TTL 30 分钟\n    Map<String, Object> claims = new HashMap<>();\n    claims.put(Constants.LOGIN_USER_KEY, token);      // JWT 里只放这个索引\n    return buildJwt(claims);\n}\n\npublic void delLoginUser(String token) {\n    // 强制下线的实现：删除 __2__ 中的缓存即 __3__ 生效\n    redisCache.deleteObject(LOGIN_TOKEN_KEY + token);\n}",
+      "blanks": [
+        {
+          "candidates": ["UUID", "JWT", "雪花 ID"],
+          "answer": "UUID"
+        },
+        {
+          "candidates": ["Redis", "数据库", "本地内存 Map"],
+          "answer": "Redis"
+        },
+        {
+          "candidates": ["立即", "等 JWT 过期后", "半小时后"],
+          "answer": "立即"
+        }
+      ],
+      "question": "补全双牌机制：签发时先生成什么？LoginUser 存哪里？删除缓存后强制下线何时生效？",
+      "explanation": "UUID 作 Redis 索引；LoginUser 存 Redis（30 分钟 TTL）；JWT 只携带该 UUID。强制下线删除 Redis 缓存后立即生效——下次请求解析出 UUID 却取不到 LoginUser，视为未登录。",
+      "optionExplanations": {
+        "空1": "索引用无语义 UUID，避免泄露信息。",
+        "空2": "LoginUser 全量在 Redis，TTL 30 分钟。",
+        "空3": "取不到缓存即未认证，下一请求立即被拦。"
+      },
+      "designWhy": "三个空对应双牌机制的三个环节：发索引、存真相、立删生效——填完即理解踢人功能的全部实现。",
+      "relatedTopicIds": ["ry-request-lifecycle"]
+    }
+  ]
+}

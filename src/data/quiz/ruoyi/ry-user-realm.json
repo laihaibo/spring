@@ -1,0 +1,72 @@
+{
+  "topicId": "ry-user-realm",
+  "quizzes": [
+    {
+      "id": "q-ryrealm-01",
+      "topicId": "ry-user-realm",
+      "kind": "single",
+      "question": "Shiro 版 UserRealm.doGetAuthenticationInfo 返回 SimpleAuthenticationInfo(user, user.getPassword(), getName()) 后，密码比对由谁完成？",
+      "options": {
+        "A": "Realm 在方法末尾自行 equals 比对",
+        "B": "CredentialsMatcher 用 token 中的明文按配置算法重算后与密文比对",
+        "C": "数据库存储过程比对",
+        "D": "前端提交前已比对，此处只是占位"
+      },
+      "answer": "B",
+      "explanation": "Realm 的职责边界：查库、状态校验、交出密文；真正的比对由 CredentialsMatcher（如 HashedCredentialsMatcher MD5+盐）用 token 中的明文重算并 equals。算法不一致是「明明密码对却登录失败」的经典原因。",
+      "optionExplanations": {
+        "A": "Realm 不做比对，职责分离才便于换加密策略。",
+        "B": "正确，匹配器是密码校验的执行者。",
+        "C": "密码校验在应用层完成。",
+        "D": "服务端必须独立校验，前端比对只是体验。"
+      },
+      "designWhy": "「Realm 递档案、匹配器做比对」的职责分工是读懂登录链路的关键，也是排查加密算法不一致问题的入口。",
+      "relatedTopicIds": ["ry-shiro-vs-security"]
+    },
+    {
+      "id": "q-ryrealm-02",
+      "topicId": "ry-user-realm",
+      "kind": "judge",
+      "question": "RuoYi-Vue（Spring Security 版）改角色权限后需要用户重新登录才生效，因为权限集合在登录时预计算并缓存进了 Redis 的 LoginUser。",
+      "answer": true,
+      "explanation": "Vue 版为适配无状态方案，把 Shiro「授权回调懒加载+缓存」改成「登录时一次性预计算」：SysPermissionService 算好权限集合 → 塞进 LoginUser → TokenService 存 Redis。此后请求只读缓存不再查库，代价就是权限变更要等重登（或管理员手动踢下线/清缓存）。",
+      "optionExplanations": {
+        "true": "正确，这是无状态方案「以新鲜度换性能」的典型取舍。",
+        "false": "若每次请求都实时查权限，就失去了缓存的意义。"
+      },
+      "designWhy": "预计算 vs 懒加载是两个版本安全实现的深层差异，也是「为什么改权限不生效」工单的标准答案。",
+      "relatedTopicIds": ["ry-jwt-token-service", "ry-rbac-model"]
+    },
+    {
+      "id": "q-ryrealm-03",
+      "topicId": "ry-user-realm",
+      "kind": "code-completion",
+      "codePath": "UserRealm.java",
+      "language": "java",
+      "codeTemplate": "@Override\nprotected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) {\n    String username = (String) token.get__1__();     // 从 Token 取出用户名\n    SysUser user = userService.selectUserByUserName(username);\n    if (user == null) {\n        throw new __2__(\"账号或密码错误\");            // 用户不存在\n    }\n    if (UserConstants.USER_DISABLE.equals(user.getStatus())) {\n        throw new LockedAccountException(\"账号已停用\");\n    }\n    return new SimpleAuthenticationInfo(user, user.get__3__(), getName());\n}",
+      "blanks": [
+        {
+          "candidates": ["Principal", "password", "credentials"],
+          "answer": "Principal"
+        },
+        {
+          "candidates": ["UnknownAccountException", "IncorrectCredentialsException", "NullPointerException"],
+          "answer": "UnknownAccountException"
+        },
+        {
+          "candidates": ["password", "salt", "userName"],
+          "answer": "password"
+        }
+      ],
+      "question": "补全认证回调：用户名从 Token 的哪个属性取？用户不存在的标准异常？SimpleAuthenticationInfo 的第二个参数应是明文还是密文？",
+      "explanation": "getPrincipal() 取用户名（getCredentials() 才是密码）；用户不存在抛 UnknownAccountException；第三个参数传数据库密文（password），供 CredentialsMatcher 与明文重算值比对——绝不传明文。",
+      "optionExplanations": {
+        "空1": "Principal 即身份（用户名），Credentials 即凭证（密码）。",
+        "空2": "UnknownAccountException 是 Shiro 标准账号不存在异常。",
+        "空3": "第二个参数是数据库中的密文，明文在 token 里由匹配器重算比对。"
+      },
+      "designWhy": "三个空对应认证回调的三个关键动作：取身份、判存在、交密文——填完这题，认证回调就能默写了。",
+      "relatedTopicIds": ["ry-shiro-vs-security"]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "topicId": "ry-code-generator",
+  "quizzes": [
+    {
+      "id": "q-rygen-01",
+      "topicId": "ry-code-generator",
+      "kind": "single",
+      "question": "代码生成器「导入表结构」一步读取的是什么？",
+      "options": {
+        "A": "扫描项目中已有的 Entity 类",
+        "B": "数据库 information_schema 的表与字段元信息",
+        "C": "前端 Vue 文件解析出的表单",
+        "D": "Excel 上传的表设计文档"
+      },
+      "answer": "B",
+      "explanation": "导入走 information_schema.columns（MySQL 元数据标准接口），把字段名/类型/注释/主键存进 gen_table 与 gen_table_column——后续模板渲染的全部上下文都来自这两张元数据表。",
+      "optionExplanations": {
+        "A": "生成器面向「先建表后生成」的流程，不反向扫类。",
+        "B": "正确，元数据是整条流水线的原料。",
+        "C": "Vue 页面是产物不是输入。",
+        "D": "没有此通道。"
+      },
+      "designWhy": "「原料是什么」决定了对流水线的全部理解：元数据表（gen_table）→ 模板上下文，一条线贯穿。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-rygen-02",
+      "topicId": "ry-code-generator",
+      "kind": "judge",
+      "question": "想让生成的 Service 默认带上公司统一的返回结构，正确做法是修改 vm 模板而非生成后逐个手改。",
+      "answer": true,
+      "explanation": "vm 模板是生成代码的唯一模具：改 serviceImpl.java.vm 后，后续所有生成的代码天然符合新规范——这是「改模具」与「改产品」的区别，也是生成器作为团队规范落地工具的价值。",
+      "optionExplanations": {
+        "true": "正确：规范应沉淀在模具里。",
+        "false": "逐个手改只解决存量，解决不了增量。"
+      },
+      "designWhy": "把生成器从「提效工具」提升到「规范载体」，这是二开团队真正用它的方式。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-rygen-03",
+      "topicId": "ry-code-generator",
+      "kind": "code-reading",
+      "codePath": "serviceImpl.java.vm",
+      "language": "java",
+      "code": "package ${packageName}.service.impl;\n\nimport ${packageName}.domain.${ClassName};\nimport ${packageName}.mapper.${ClassName}Mapper;\nimport ${packageName}.service.I${ClassName}Service;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class ${ClassName}ServiceImpl implements I${ClassName}Service\n{\n    @Autowired\n    private ${ClassName}Mapper ${className}Mapper;\n\n    @Override\n    public List<${ClassName}> select${ClassName}List(${ClassName} ${className})\n    {\n        return ${className}Mapper.select${ClassName}List(${className});\n    }\n}\n\n// 渲染上下文：\n// packageName=com.ruoyi.business, ClassName=Product, className=product",
+      "question": "渲染后，生成的类名、字段名、包名分别是什么？",
+      "options": {
+        "A": "类名 ProductServiceImpl，包 com.ruoyi.business.service.impl，字段 productMapper",
+        "B": "类名 ${ClassName}ServiceImpl，模板变量原样保留",
+        "C": "类名 Product，字段 ${className}Mapper",
+        "D": "类名 productServiceImpl，包 com.ruoyi.business"
+      },
+      "answer": "A",
+      "explanation": "Velocity 把 ${ClassName}（首字母大写）→ Product，${className}（首字母小写）→ product，${packageName} → com.ruoyi.business。注意模板里刻意区分了两种大小写变体——类名与变量名各取所需。",
+      "optionExplanations": {
+        "A": "正确，三个变量的大小写约定是读模板的基本功。",
+        "B": "渲染后变量被替换，不会保留占位符。",
+        "C": "类名来自 ClassName 的完整替换。",
+        "D": "大小写变体弄反了：${ClassName} 是大驼峰。"
+      },
+      "designWhy": "大小写变体（ClassName/className）是自定义模板时最常见的踩坑点，用渲染结果反推变量语义。",
+      "relatedTopicIds": ["ry-architecture"]
+    }
+  ]
+}

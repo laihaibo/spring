@@ -1,0 +1,37 @@
+{
+  "id": "ry-common-module",
+  "track": "ruoyi",
+  "level": 1,
+  "title": "ruoyi-common 通用层：AjaxResult、BaseController 与分页三件套",
+  "brief": "被全站依赖的底座长什么样：统一响应、分页封装、审计字段——读懂它才能写出「RuoYi 味」的代码。",
+  "explanation": "## 统一响应：AjaxResult\n\n```java path=AjaxResult.java\npublic class AjaxResult extends HashMap<String, Object> {\n    public static final String CODE_TAG = \"code\";\n    public static final String MSG_TAG = \"msg\";\n    public static final String DATA_TAG = \"data\";\n\n    public static AjaxResult success()        { return AjaxResult.success(\"操作成功\"); }\n    public static AjaxResult error(String msg){ return AjaxResult.error(HttpStatus.ERROR, msg); }\n}\n```\n\n继承 HashMap、静态工厂构造——前端永远拿到 `{code, msg, data}` 同一结构（code 200 成功 / 500 失败）。与第一批的全局异常处理器呼应：异常也转成这个结构。\n\n## 分页三件套\n\n1. **BaseController.startPage()**：从请求参数取 pageNum/pageSize → PageHelper 开页\n2. **getDataTable(list)**：包装为 `TableDataInfo{total, rows}`\n3. **PageDomain / TableSupport**：把 HTTP 参数转换成分页请求对象\n\n```java path=BaseController.java\npublic class BaseController {\n    protected void startPage() {\n        PageUtils.startPage();          // PageHelper.startPage(pageNum, pageSize, orderBy)\n    }\n\n    protected TableDataInfo getDataTable(List<?> list) {\n        TableDataInfo rspData = new TableDataInfo();\n        rspData.setCode(HttpStatus.SUCCESS);\n        rspData.setRows(list);\n        rspData.setTotal(new PageInfo(list).getTotal());\n        return rspData;\n    }\n}\n```\n\n## 审计字段：BaseEntity\n\n```java path=BaseEntity.java\npublic class BaseEntity implements Serializable {\n    private String searchValue;                     // 查询用临时参数\n    private String createBy;                        // 创建人\n    private Date createTime;\n    private String updateBy;\n    private Date updateTime;\n    private String remark;\n    private Map<String, Object> params;             // 透传容器：DataScope 的插槽在这里！\n}\n```\n\n所有 domain 继承它：审计字段统一承载、`params` 作为扩展透传通道（数据权限切面往里塞 SQL 片段、日期范围查询参数也走它）。\n\n## 还有这些高频工具\n\n`SecurityUtils`（取当前登录人）、`StringUtils/DateUtils`、`@Excel` 注解 + ExcelUtil（导出）、`@Log` + `BusinessType`（操作日志枚举）、全局常量 `Constants/HttpStatus`。写业务前先翻 common——很多轮子已经造好。",
+  "analogy": "common 层像厨房的「标准工装区」：统一餐盒（AjaxResult——每道菜出锅用同一种盒子装）、统一称重器（分页三件套——任何菜都能按份量出餐）、统一厨师服口袋（BaseEntity——工作服上印好的名牌、日期栏，谁都别自己缝）。新厨师（新业务模块）进后厨第一件事：认识这些标准工装，别自己带私房盒子上菜。",
+  "codeExamples": [
+    {
+      "id": "ry-common-ajax",
+      "filePath": "ruoyi-common/src/main/java/com/ruoyi/common/core/domain/AjaxResult.java",
+      "language": "java",
+      "runnableFileName": "AjaxResult.java",
+      "summary": "统一响应的完整实现：继承 HashMap + 静态工厂，全站响应结构唯一。",
+      "sourceNote": "RuoYi-Vue · ruoyi-common/.../core/domain/AjaxResult.java（节选简化）",
+      "code": "package com.ruoyi.common.core.domain;\n\nimport com.ruoyi.common.constant.HttpStatus;\nimport java.util.HashMap;\n\npublic class AjaxResult extends HashMap<String, Object> {\n\n    private static final long serialVersionUID = 1L;\n\n    public static final String CODE_TAG = \"code\";\n    public static final String MSG_TAG = \"msg\";\n    public static final String DATA_TAG = \"data\";\n\n    public AjaxResult(int code, String msg) {\n        super.put(CODE_TAG, code);\n        super.put(MSG_TAG, msg);\n    }\n\n    public AjaxResult(int code, String msg, Object data) {\n        this(code, msg);\n        if (data != null) {\n            super.put(DATA_TAG, data);\n        }\n    }\n\n    public static AjaxResult success() {\n        return AjaxResult.success(\"操作成功\");\n    }\n\n    public static AjaxResult success(Object data) {\n        return AjaxResult.success(\"操作成功\", data);\n    }\n\n    public static AjaxResult error(String msg) {\n        return AjaxResult.error(HttpStatus.ERROR, msg);\n    }\n\n    public static AjaxResult error(int code, String msg) {\n        return new AjaxResult(code, msg, null);\n    }\n}"
+    },
+    {
+      "id": "ry-common-base",
+      "filePath": "ruoyi-common/src/main/java/com/ruoyi/common/core/domain/BaseEntity.java",
+      "language": "java",
+      "runnableFileName": "BaseEntity.java",
+      "summary": "审计字段 + params 透传容器：DataScope 切面塞 SQL 的插槽就定义在这里。",
+      "sourceNote": "RuoYi-Vue · ruoyi-common/.../core/domain/BaseEntity.java（节选简化）",
+      "code": "package com.ruoyi.common.core.domain;\n\nimport java.io.Serializable;\nimport java.util.Date;\nimport java.util.HashMap;\nimport java.util.Map;\nimport com.fasterxml.jackson.annotation.JsonIgnore;\n\npublic class BaseEntity implements Serializable {\n\n    private String searchValue;\n\n    private String createBy;\n    private Date createTime;\n    private String updateBy;\n    private Date updateTime;\n    private String remark;\n\n    /** 透传容器：数据权限 SQL 片段、日期范围参数都经它传递 */\n    private Map<String, Object> params;\n\n    public Map<String, Object> getParams() {\n        if (params == null) {\n            params = new HashMap<>();\n        }\n        return params;\n    }\n\n    @JsonIgnore                                   // 防止前端恶意注入 params.dataScope\n    public Map<String, Object> getParams() {\n        return params;\n    }\n\n    public void setCreateBy(String createBy) {\n        this.createBy = createBy;\n    }\n\n    public String getCreateBy() {\n        return createBy;\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「AjaxResult 继承 HashMap 不够优雅」——换来的是 JSON 序列化零配置与前端解析稳定；理解设计意图比套 RESTful 模板重要。",
+    "「params 是个可以随便用的自由字段」——它是服务端内部透传通道（DataScope 插槽、日期范围），对外开放会绕过安全机制（这就是 RuoYi 后来给 getParams 加 @JsonIgnore 的原因）。",
+    "「分页必须手动传 pageNum 到 Service」——分页参数从 HTTP 请求自动进 PageHelper（startPage），Service 不感知分页存在。",
+    "「BaseEntity 的审计字段会自动填充」——RuoYi 在业务层显式 set 或用拦截器设置，继承只是统一承载，不等于自动写入。"
+  ],
+  "tags": ["common", "AjaxResult", "分页", "BaseEntity"],
+  "prereq": ["ry-architecture", "sb-exception-handling"]
+}

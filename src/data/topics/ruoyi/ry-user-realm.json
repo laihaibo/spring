@@ -1,0 +1,37 @@
+{
+  "id": "ry-user-realm",
+  "track": "ruoyi",
+  "level": 3,
+  "title": "源码精读 UserRealm：认证与授权的最终落点",
+  "brief": "登录密码怎么比对、权限集合怎么组装——把 Shiro 版 UserRealm 两个回调掰开，再映射到 Vue 版的三件套。",
+  "explanation": "## UserRealm 在登录链路中的位置\n\n```\nSysLoginController.login()\n  └→ SysLoginService.login(username, password)\n       └→ authenticationToken = new UsernamePasswordToken(username, password)\n       └→ SecurityUtils.getSubject().login(token)     ← 触发 SecurityManager\n            └→ UserRealm.doGetAuthenticationInfo()    ← 本讲主角：查库 + 委托密码匹配\n```\n\n## 回调一：认证（doGetAuthenticationInfo）\n\n```java path=UserRealm-auth.java\n@Override\nprotected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) {\n    String username = (String) token.getPrincipal();\n    SysUser user = userService.selectUserByUserName(username);  // 1. 查库\n    if (user == null) {\n        throw new UnknownAccountException();                    // 2. 用户不存在\n    }\n    if (user.getStatus().equals(UserStatus.DISABLE)) {\n        throw new LockedAccountException();                     // 3. 停用账户\n    }\n    SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(\n        user, user.getPassword(), getName());                   // 4. 数据库密文交给匹配器\n    return info;\n}\n// 5. CredentialsMatcher 用 token 里的明文按同算法（MD5+盐）加密后与密文比对\n//    密码加密规则：encryptPassword(loginName, password, salt)\n```\n\n**关键认知**：Realm 不亲自比对密码——它把「数据库密文」交给 CredentialsMatcher，由匹配器用 token 中的明文按同算法重算并 equals。盐与用户绑定存储，所以改密码 = 换密文。\n\n## 回调二：授权（doGetAuthorizationInfo）\n\n```java path=UserRealm-authz.java\n@Override\nprotected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {\n    SysUser user = (SysUser) principals.getPrimaryPrincipal();\n    SimpleAuthorizationInfo info = new SimpleAuthorizationInfo();\n    info.setRoles(roleService.selectRoleKeys(user.getUserId()));      // role_key 集合\n    info.setStringPermissions(menuService.selectMenuPermsByUserId(user.getUserId())); // perms 集合\n    return info;\n}\n// 管理员（userId==1）直接授予 all 权限：*:*:*\n```\n\n授权回调在**首次权限校验时触发**（不是登录时），结果由缓存管理（RuoYi 用自有 cache 或 Redis）缓存，改权限后需清缓存或重登。\n\n## RuoYi-Vue 的三件套映射\n\n| Shiro 版 | Vue 版（Spring Security） |\n|---|---|\n| UserRealm.doGetAuthenticationInfo | UserDetailsServiceImpl.loadUserByUsername |\n| CredentialsMatcher 比对 | SysPasswordService.validate（BCrypt/MD5+计数锁定） |\n| doGetAuthorizationInfo | SysPermissionService.getMenuPermission（登录时算好，缓存进 LoginUser→Redis） |\n\n注意一个流程差异：**Vue 版在登录时就把权限集合算好塞进 LoginUser（随 Redis 缓存），授权回调模型被「登录时预计算」取代**——这是无状态方案的必然选择（每次请求不想再查库）。",
+  "analogy": "UserRealm 是小区安保的「片警」：认识每一户（查库）、核对访客身份（认证回调：查到住户档案交给门禁系统比对指纹——比对动作由门禁机 CredentialsMatcher 完成，片警只递档案）、知道每户有几把哪些门禁卡（授权回调：查卡清单交给物业备案）。RuoYi-Vue 则改成了「发卡中心一次性核档制卡」：登录那刻就把住户所有门卡算好（SysPermissionService 预计算），之后刷卡的门（每次请求）只认卡不问人——这就是为什么改了权限要等重新登录才生效。",
+  "codeExamples": [
+    {
+      "id": "ry-realm-auth",
+      "filePath": "ruoyi-framework/src/main/java/com/ruoyi/framework/shiro/realm/UserRealm.java",
+      "language": "java",
+      "runnableFileName": "UserRealm.java",
+      "summary": "认证回调完整逻辑：查库 → 状态校验 → 交出密文；比对由匹配器完成。",
+      "sourceNote": "RuoYi 单体版 · ruoyi-framework/.../shiro/realm/UserRealm.java（教学简化）",
+      "code": "package com.ruoyi.framework.shiro.realm;\n\nimport com.ruoyi.common.constant.UserConstants;\nimport com.ruoyi.common.core.domain.entity.SysUser;\nimport com.ruoyi.system.service.ISysUserService;\nimport org.apache.shiro.authc.*;\nimport org.apache.shiro.authc.credential.HashedCredentialsMatcher;\nimport org.apache.shiro.realm.AuthorizingRealm;\n\npublic class UserRealm extends AuthorizingRealm {\n\n    private final ISysUserService userService;\n\n    public UserRealm(ISysUserService userService) {\n        this.userService = userService;\n        // 密码匹配器：MD5 散列 + 盐，与注册加密算法一致\n        HashedCredentialsMatcher matcher = new HashedCredentialsMatcher(\"MD5\");\n        matcher.setHashIterations(2);\n        setCredentialsMatcher(matcher);\n    }\n\n    @Override\n    protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) {\n        String username = (String) token.getPrincipal();\n        SysUser user = userService.selectUserByUserName(username);\n\n        if (user == null) {\n            throw new UnknownAccountException(\"账号或密码错误\");\n        }\n        if (UserConstants.USER_DISABLE.equals(user.getStatus())) {\n            throw new LockedAccountException(\"账号已停用\");\n        }\n        // 第一个参数存 Principal（后续授权回调取用），第二个是密文\n        return new SimpleAuthenticationInfo(user, user.getPassword(), getName());\n    }\n}"
+    },
+    {
+      "id": "ry-realm-perm",
+      "filePath": "ruoyi-framework/src/main/java/com/ruoyi/framework/web/service/SysLoginService.java",
+      "language": "java",
+      "runnableFileName": "SysLoginService.java",
+      "summary": "Vue 版登录服务：预计算权限集合 → 组装 LoginUser → 交给 TokenService 签发（授权回调模型的替代）。",
+      "sourceNote": "RuoYi-Vue · ruoyi-framework/.../web/service/SysLoginService.java（教学简化）",
+      "code": "package com.ruoyi.framework.web.service;\n\nimport com.ruoyi.common.core.domain.entity.SysUser;\nimport com.ruoyi.common.core.domain.model.LoginUser;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class SysLoginService {\n\n    private final TokenService tokenService;\n    private final SysPasswordService passwordService;\n    private final SysPermissionService permissionService;\n\n    public SysLoginService(TokenService tokenService,\n                           SysPasswordService passwordService,\n                           SysPermissionService permissionService) {\n        this.tokenService = tokenService;\n        this.passwordService = passwordService;\n        this.permissionService = permissionService;\n    }\n\n    public String login(String username, String password) {\n        // 查用户 + 锁定校验（UserDetailsServiceImpl 内部调用 passwordService.validate）\n        SysUser user = userDetailsService.loadUserByUsername(username).getUser();\n\n        // 密码比对，不匹配抛 UserPasswordNotMatchException\n        passwordService.validate(user, password);\n\n        // 登录时预计算权限集合（Shiro 版在授权回调里懒加载，这里改为一次性算好）\n        var permissions = permissionService.getMenuPermission(user);\n        LoginUser loginUser = new LoginUser(user.getUserId(), user.getDeptId(), user, permissions);\n\n        // 签发 Token 并缓存到 Redis（详见 TokenService 一讲）\n        return tokenService.createToken(loginUser);\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「Realm 自己比对密码」——它只负责把数据库密文交给 CredentialsMatcher；匹配器用同一算法重算明文再 equals，两边算法不一致就永远登录失败。",
+    "「授权回调在登录时执行」——Shiro 版在首次权限校验时才触发并缓存；而 Vue 版改为登录时预计算进 LoginUser（Redis），两者时机完全不同。",
+    "「改了角色权限立即生效」——Shiro 版要清缓存，Vue 版要重新登录（Redis 里的 LoginUser 旧权限仍在），这是无状态方案换来的代价。",
+    "「密码错误次数限制在 Realm 里」——Vue 版由 SysPasswordService 独立承担（计数+锁定），Realm/DetailsService 只调它。"
+  ],
+  "tags": ["UserRealm", "源码", "认证", "授权"],
+  "prereq": ["ry-rbac-model", "ry-shiro-vs-security"]
+}

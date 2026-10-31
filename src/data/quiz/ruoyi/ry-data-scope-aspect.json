@@ -1,0 +1,66 @@
+{
+  "topicId": "ry-data-scope-aspect",
+  "quizzes": [
+    {
+      "id": "q-ryds-01",
+      "topicId": "ry-data-scope-aspect",
+      "kind": "single",
+      "question": "一个用户有两个角色：roleA（data_scope=5 仅本人）与 roleB（data_scope=3 本部门）。查询时他能看到什么？",
+      "options": {
+        "A": "只看到自己的行（取更严格的）",
+        "B": "本部门所有人的行 + 自己的行（OR 并集）",
+        "C": "全部门下所有部门的数据",
+        "D": "两角色冲突，切面抛异常"
+      },
+      "answer": "B",
+      "explanation": "切面遍历用户所有角色，各自生成 OR 条件后合并：AND (dept_id = 100 OR user_id = 200)。数据权限按角色取并集——这是「多岗位职能叠加」的合理语义。功能权限（perms）同样是并集。",
+      "optionExplanations": {
+        "A": "取严格者会破坏多角色叠加的语义。",
+        "B": "正确，多角色 OR 合并。",
+        "C": "没有「全部」档位的角色不会放行更多数据。",
+        "D": "多角色是设计内的正常情况。"
+      },
+      "designWhy": "并集语义是数据权限最容易被想当然的点（很多人以为是取更严格的），用具体角色组合逼出真实规则。",
+      "relatedTopicIds": ["ry-rbac-model"]
+    },
+    {
+      "id": "q-ryds-02",
+      "topicId": "ry-data-scope-aspect",
+      "kind": "judge",
+      "question": "Mapper XML 里 ${params.dataScope} 使用字符串拼接而非 #{} 预编译，是 RuoYi 的 SQL 注入漏洞。",
+      "answer": false,
+      "explanation": "该插槽的值完全由 DataScopeAspect 用登录人的角色 ID、部门 ID 等受控数据生成，前端输入无法触达——注入面封闭。真正的漏洞姿势是自己把 request 参数塞进 params.dataScope；同理，用户输入（如 userName）在 RuoYi 里全部走 #{} 预编译。",
+      "optionExplanations": {
+        "true": "若外部输入可达此插槽才是漏洞；机制本身受控。",
+        "false": "正确：受控生成 + 用户输入走 #{}，两条纪律保证了安全。"
+      },
+      "designWhy": "${} 与 #{} 的安全边界是 MyBatis 的经典考点，结合真实框架场景讲「为什么这里可以 ${}」比空背规则深刻。",
+      "relatedTopicIds": ["sb-config-system"]
+    },
+    {
+      "id": "q-ryds-03",
+      "topicId": "ry-data-scope-aspect",
+      "kind": "code-reading",
+      "codePath": "DataScopeAspect.java",
+      "language": "java",
+      "code": "@Aspect\n@Component\npublic class DataScopeAspect {\n\n    @Before(\"@annotation(controllerDataScope)\")\n    public void doBefore(JoinPoint point, DataScope controllerDataScope) {\n        clearDataScope(point);\n        LoginUser loginUser = SecurityUtils.getLoginUser();\n        if (loginUser.getUser().isAdmin()) {\n            return;\n        }\n        // ...按角色 data_scope 拼 SQL，塞进 args[0] 的 params\n    }\n\n    private void clearDataScope(JoinPoint joinPoint) {\n        Object arg = joinPoint.getArgs()[0];\n        if (arg instanceof BaseEntity entity) {\n            entity.getParams().put(\"dataScope\", \"\");\n        }\n    }\n}",
+      "question": "clearDataScope 先于拼接执行的意图是什么？管理员为什么直接 return（连 params 都不写）？",
+      "options": {
+        "A": "clear 是清空上一个请求残留的条件，防污染；管理员 return 意味着不写任何过滤条件 → ${params.dataScope} 渲染为空 → 查全部数据",
+        "B": "clear 是为了节省内存；管理员 return 会报空指针",
+        "C": "clear 是清空 Redis 缓存；管理员会被拼上 user_id=1 的条件",
+        "D": "clear 与功能无关，只是代码风格"
+      },
+      "answer": "A",
+      "explanation": "查询实体可能被复用（重试/异步场景），残留的旧条件会让新查询带上错误围栏，所以先清空占位。管理员 return 后 params.dataScope 为空字符串，XML 里 ${} 渲染为空——无 WHERE 附加条件，天然看全部。",
+      "optionExplanations": {
+        "A": "正确：先清后拼 + 管理员空插槽，两个细节都是精心设计。",
+        "B": "与内存无关；不写条件不会 NPE。",
+        "C": "clear 清的是方法参数里的字符串，不是 Redis。",
+        "D": "防污染是功能性设计，有真实缺陷场景对应。"
+      },
+      "designWhy": "「先清后拼」与「管理员空插槽」是切面里最容易被略过的两行，答对说明读到了实现层而非概念层。",
+      "relatedTopicIds": ["aop-advice-types", "ry-request-lifecycle"]
+    }
+  ]
+}

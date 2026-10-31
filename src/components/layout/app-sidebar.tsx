@@ -61,7 +61,7 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
       <SidebarFooter className="px-4 py-3 text-[11px] text-muted-foreground">
-        <span className="nums">已上线 2 批 · 20 讲 · 60 题</span>
+        <span className="nums">已上线 3 批 · 30 讲 · 90 题</span>
       </SidebarFooter>
     </Sidebar>
   );

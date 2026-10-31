@@ -1,0 +1,37 @@
+{
+  "id": "ry-code-generator",
+  "track": "ruoyi",
+  "level": 2,
+  "title": "代码生成器：GenController 与模板引擎流水线",
+  "brief": "读表结构 → 存元数据 → Velocity 模板渲染 → zip 下载——RuoYi 提效核心的完整流水线。",
+  "explanation": "## 流水线四步\n\n```\n1. 导入表结构\n   GenController /tool/gen/importTable\n   → 查 information_schema.columns 拿字段元信息\n   → 写入 gen_table（表）+ gen_table_column（字段）\n\n2. 编辑配置\n   前端编辑：生成模块名、业务名、功能名、作者、\n   每个字段的 Java 类型/查询方式/表单控件\n\n3. 模板渲染（Velocity）\n   ruoyi-generator/src/main/resources/vm/*\n   ├── java/controller.java.vm\n   ├── java/serviceImpl.java.vm\n   ├── java/mapper.xml.vm\n   ├── vue/index.vue.vm\n   └── sql/menu.sql.vm\n\n4. 打包下载 / 直接写入工程路径\n   GenController.batchGenCode → zip 流返回浏览器\n```\n\n## 生成的代码长什么样\n\n一张 `biz_product` 表 → 生成全套 CRUD：Controller（含权限注解/导出注解）、Service/Impl、Mapper 接口+XML、domain（继承 BaseEntity）、Vue 列表页与表单弹窗、菜单 SQL（含 perms 字符串）。\n\n```java path=vm/java/controller.java.vm\npackage ${packageName}.controller;              // 模板变量：包名\n\nimport ${packageName}.domain.${ClassName};\nimport com.ruoyi.common.core.controller.BaseController;\n\n/**\n * ${functionName}Controller                     // 注释用表备注\n *\n * @author ${author}\n * @date ${datetime}\n */\n@RestController\n@RequestMapping(\"/${moduleName}/${businessName}\")\npublic class ${ClassName}Controller extends BaseController {\n    // 骨架固定，业务字段由模板循环 genTableColumn 渲染\n}\n```\n\n## 为什么要精读它\n\n- **学元编程思路**：代码生成 = 元数据（表结构）+ 模板（Velocity）+ 渲染上下文——理解它就能写自己的生成器\n- **日常提效**：新增业务表后 5 分钟出全套 CRUD，只需改业务逻辑\n- **改模板 = 改团队规范**：想生成带 Swagger 注解/统一返回结构的代码，改 vm 模板而非手抄",
+  "analogy": "代码生成器是一条「定制餐盒流水线」。第一步验货入库：把菜谱表（数据库表）拆成一行行食材清单（gen_table_column）。第二步填订单：指定盒型（模块名）、贴纸文案（功能名/作者）。第三步按模具装盒（Velocity 模板：controller 盒、service 盒、vue 盒），食材字段循环填进每个格子。第四步封箱贴快递单（zip 下载）。想换团队包装风格？改模具（模板）即可——下一批餐盒全部按新规范出厂。",
+  "codeExamples": [
+    {
+      "id": "ry-gen-controller",
+      "filePath": "ruoyi-generator/src/main/java/com/ruoyi/generator/controller/GenController.java",
+      "language": "java",
+      "runnableFileName": "GenController.java",
+      "summary": "流水线入口：导入表结构 / 预览 / 下载三个端点的真实形态。",
+      "sourceNote": "RuoYi-Vue · ruoyi-generator/.../controller/GenController.java（节选简化）",
+      "code": "package com.ruoyi.generator.controller;\n\nimport java.util.List;\nimport java.util.Map;\nimport com.ruoyi.common.core.controller.BaseController;\nimport com.ruoyi.common.core.domain.AjaxResult;\nimport com.ruoyi.common.core.page.TableDataInfo;\nimport com.ruoyi.generator.domain.GenTable;\nimport com.ruoyi.generator.service.IGenTableService;\nimport jakarta.servlet.http.HttpServletResponse;\nimport org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.security.access.prepost.PreAuthorize;\nimport org.springframework.web.bind.annotation.*;\n\n@RestController\n@RequestMapping(\"/tool/gen\")\npublic class GenController extends BaseController {\n\n    private final IGenTableService genTableService;\n\n    public GenController(IGenTableService genTableService) {\n        this.genTableService = genTableService;\n    }\n\n    @PreAuthorize(\"@ss.hasPermi('tool:gen:list')\")\n    @GetMapping(\"/list\")\n    public TableDataInfo genList(GenTable genTable) {\n        startPage();\n        List<GenTable> list = genTableService.selectGenTableList(genTable);\n        return getDataTable(list);\n    }\n\n    /** 导入表结构：读 information_schema → 存 gen_table / gen_table_column */\n    @PreAuthorize(\"@ss.hasPermi('tool:gen:import')\")\n    @PostMapping(\"/importTable\")\n    public AjaxResult importTableSave(String tables) {\n        String[] tableNames = tables.split(\",\");\n        List<GenTable> tableList = genTableService.selectDbTableListByNames(tableNames);\n        genTableService.importGenTable(tableList);\n        return success();\n    }\n\n    /** 生成代码：模板渲染后 zip 流下载 */\n    @PreAuthorize(\"@ss.hasPermi('tool:gen:code')\")\n    @GetMapping(\"/batchGenCode\")\n    public void batchGenCode(HttpServletResponse response, String tables) {\n        genTableService.generatorCode(tables.split(\",\"), response);\n    }\n}"
+    },
+    {
+      "id": "ry-gen-template",
+      "filePath": "ruoyi-generator/src/main/resources/vm/java/serviceImpl.java.vm",
+      "language": "java",
+      "runnableFileName": "serviceImpl-template.java",
+      "summary": "Velocity 模板示例：$变量取元数据，#foreach 循环字段——生成的 ServiceImpl 骨架由此而来。",
+      "sourceNote": "RuoYi-Vue · ruoyi-generator/src/main/resources/vm/java/serviceImpl.java.vm（节选）",
+      "code": "package ${packageName}.service.impl;\n\nimport java.util.List;\nimport com.ruoyi.common.utils.DateUtils;\nimport org.springframework.stereotype.Service;\nimport ${packageName}.mapper.${ClassName}Mapper;\nimport ${packageName}.domain.${ClassName};\nimport ${packageName}.service.I${ClassName}Service;\n\n/**\n * ${functionName}Service业务层处理\n *\n * @author ${author}\n * @date ${datetime}\n */\n@Service\npublic class ${ClassName}ServiceImpl implements I${ClassName}Service\n{\n    @Autowired\n    private ${ClassName}Mapper ${className}Mapper;\n\n    @Override\n    public ${ClassName} select${ClassName}By${pkColumn.capJavaField}(${pkColumn.javaType} ${pkColumn.javaField})\n    {\n        return ${className}Mapper.select${ClassName}By${pkColumn.capJavaField}(${pkColumn.javaField});\n    }\n\n    @Override\n    public List<${ClassName}> select${ClassName}List(${ClassName} ${className})\n    {\n        return ${className}Mapper.select${ClassName}List(${className});\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「生成器读数据库会改表结构」——只读 information_schema 元信息，对业务表零写入。",
+    "「生成的代码不能改」——恰恰相反：生成的是起点骨架，改业务逻辑正常；更系统的做法是改 vm 模板让下一批生成即符合规范。",
+    "「模板引擎是 FreeMarker」——RuoYi 用 Velocity（.vm 后缀）；两者语法不同但流水线思想一致。",
+    "「只有后端代码」——模板同时生成 Vue 页面与菜单初始化 SQL，前端路由与权限字符串一次到位。"
+  ],
+  "tags": ["代码生成", "GenController", "Velocity"],
+  "prereq": ["ry-architecture"]
+}

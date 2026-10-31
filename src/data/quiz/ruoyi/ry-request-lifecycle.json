@@ -1,0 +1,67 @@
+{
+  "topicId": "ry-request-lifecycle",
+  "quizzes": [
+    {
+      "id": "q-rylife-01",
+      "topicId": "ry-request-lifecycle",
+      "kind": "single",
+      "question": "SysUserController.list() 里 startPage() 之后又插了一行别的查询，再执行列表查询，结果是？",
+      "options": {
+        "A": "没有影响，PageHelper 会自动找到列表查询",
+        "B": "列表查询不分页，被插入的那条查询被分页——分页错位",
+        "C": "两条查询都被分页",
+        "D": "启动报错"
+      },
+      "answer": "B",
+      "explanation": "PageHelper.startPage() 把分页参数放进 ThreadLocal，只作用于紧随其后的第一条 SQL，执行完即清除。中间插入别的查询会「偷走」分页，真正的列表查询反而不分页——全表数据返回，生产事故高发点。",
+      "optionExplanations": {
+        "A": "ThreadLocal 的作用域只有一条 SQL，没有智能匹配。",
+        "B": "正确，startPage 紧邻原则是 PageHelper 铁律。",
+        "C": "分页参数消费一次即清除。",
+        "D": "运行期错位不报错，更隐蔽。"
+      },
+      "designWhy": "分页错位是 RuoYi 二开最高频的 bug 之一，且症状诡异（前端偶尔拿到全量数据），用选项把「错位」这个具体形态讲清。",
+      "relatedTopicIds": ["ry-common-module"]
+    },
+    {
+      "id": "q-rylife-02",
+      "topicId": "ry-request-lifecycle",
+      "kind": "judge",
+      "question": "JwtAuthenticationTokenFilter 的职责是鉴权：判断当前用户有没有访问该接口的权限。",
+      "answer": false,
+      "explanation": "过滤器做的是「认证」：从 Token 恢复你是谁（LoginUser → SecurityContext）。「有没有权限访问」是授权，由 Security 规则与 @PreAuthorize 在后端授权环节判断。认证在前，授权在后，两层分离。",
+      "optionExplanations": {
+        "true": "把认证与授权混为一谈了——过滤器只负责恢复身份。",
+        "false": "正确：身份恢复在过滤器，权限校验在授权环节。"
+      },
+      "designWhy": "认证/授权分离是看懂 RuoYi 安全链路的前提，也呼应 Security + JWT 一讲。",
+      "relatedTopicIds": ["sb-security-jwt", "ry-security-config"]
+    },
+    {
+      "id": "q-rylife-03",
+      "topicId": "ry-request-lifecycle",
+      "kind": "code-completion",
+      "codePath": "SysRoleController.java",
+      "language": "java",
+      "codeTemplate": "@PreAuthorize(\"@ss.hasPermi('system:role:list')\")\n@GetMapping(\"/list\")\npublic TableDataInfo list(SysRole role) {\n    // 1. 开启分页（必须紧邻下一条查询）\n    __1__();\n    // 2. 执行查询（@DataScope 切面会在 Service 层拼数据权限）\n    List<SysRole> list = roleService.selectRoleList(role);\n    // 3. 包装成分页响应结构 {total, rows}\n    return __2__(list);\n}",
+      "blanks": [
+        {
+          "candidates": ["startPage", "startPageAnd", "page"],
+          "answer": "startPage"
+        },
+        {
+          "candidates": ["getDataTable", "AjaxResult", "toJson"],
+          "answer": "getDataTable"
+        }
+      ],
+      "question": "补全 RuoYi 列表接口的标准写法：分页开关方法名？分页结果包装方法名？",
+      "explanation": "BaseController 封装了 startPage()（开启 PageHelper 分页）与 getDataTable(list)（包装成 TableDataInfo{total, rows}）——这两行是所有 RuoYi 列表接口的固定节拍，必须紧邻书写。",
+      "optionExplanations": {
+        "空1": "BaseController.startPage() 是分页开关。",
+        "空2": "getDataTable 包装 {total, rows}；AjaxResult 是单对象响应。"
+      },
+      "designWhy": "列表接口四件套（注解/startPage/查询/包装）写多了会形成肌肉记忆，但新手指引里最缺的就是这两行的方法名——填空钉死。",
+      "relatedTopicIds": ["ry-common-module", "ry-data-scope-aspect"]
+    }
+  ]
+}

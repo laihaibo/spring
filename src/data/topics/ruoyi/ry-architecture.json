@@ -1,0 +1,37 @@
+{
+  "id": "ry-architecture",
+  "track": "ruoyi",
+  "level": 1,
+  "title": "RuoYi 总体架构：六模块分层设计",
+  "brief": "ruoyi-admin / framework / system / quartz / generator / common——多模块 Maven 工程的职责边界与依赖方向。",
+  "explanation": "## 为什么拆六个模块\n\nRuoYi 是多模块 Maven 工程，拆分的目的只有一个：**把「不变的」与「常变的」隔开**。业务会天天改（system），基建偶尔改（framework），工具几乎不改（common）——分层后改动的波及面被模块边界锁死。\n\n## 六模块职责（记住每个一句话）\n\n| 模块 | 职责 | 典型内容 |\n|---|---|---|\n| ruoyi-admin | 启动与入口 | 启动类、application.yml、Controller 层、页面资源 |\n| ruoyi-framework | 框架核心配置 | Spring Security 配置、JWT 过滤器、数据源、AOP、拦截器 |\n| ruoyi-system | 系统业务模块 | 用户/角色/菜单/部门的 domain-mapper-service |\n| ruoyi-quartz | 定时任务 | 调度管理、任务执行与日志 |\n| ruoyi-generator | 代码生成器 | 读表结构、模板渲染、生成业务代码 |\n| ruoyi-common | 通用工具 | AjaxResult、注解、工具类、常量、异常 |\n\n## 依赖方向（箭头只能单向）\n\n```\nruoyi-admin（打包入口，聚合所有模块）\n   ├── ruoyi-framework\n   │       ├── ruoyi-system\n   │       └── ruoyi-common\n   ├── ruoyi-quartz ──→ ruoyi-common\n   ├── ruoyi-generator ──→ ruoyi-common\n   └── ruoyi-system ──→ ruoyi-common\n```\n\n**铁律：common 不依赖任何业务模块**。它是被所有人依赖的底座，一旦反向依赖就会形成环，Maven 直接拒绝构建。framework 依赖 system 是因为安全配置需要读用户表（UserDetailsService 查库）。\n\n## 迁移价值\n\n自己公司脚手架大多照此骨架生长：新建业务模块（如 ruoyi-business）挂到 admin 下，只依赖 common——六模块结构就是「可持续生长的树干」。",
+  "analogy": "RuoYi 的六模块像一家酒店的组织架构。ruoyi-admin 是大门与前厅（客人只从这里进出，启动类在这里）；ruoyi-framework 是工程部（水电、门禁、消防系统，客人看不见但没有它开不了业）；ruoyi-system 是客房部（核心业务，房间管理）；ruoyi-quartz 是闹钟服务部（定时叫醒）；ruoyi-generator 是装修模板部（新房间照模板快速布置）；ruoyi-common 是采购仓库（所有部门都来找它拿物资，但它从不反求任何部门）。谁依赖谁的分工，就是酒店的汇报线——仓库不可能去指挥客房部。",
+  "codeExamples": [
+    {
+      "id": "ry-arch-pom",
+      "filePath": "ruoyi-admin/pom.xml",
+      "language": "xml",
+      "runnableFileName": "admin-pom.xml",
+      "summary": "admin 模块的 POM：作为聚合入口依赖其余五个模块，Spring Boot 打包插件也在这里。",
+      "sourceNote": "RuoYi-Vue 官方仓库 · ruoyi-admin/pom.xml（结构节选）",
+      "code": "<dependencies>\n    <!-- 核心配置模块：Security/JWT/数据源 -->\n    <dependency>\n        <groupId>com.ruoyi</groupId>\n        <artifactId>ruoyi-framework</artifactId>\n    </dependency>\n\n    <!-- 定时任务与代码生成 -->\n    <dependency>\n        <groupId>com.ruoyi</groupId>\n        <artifactId>ruoyi-quartz</artifactId>\n    </dependency>\n    <dependency>\n        <groupId>com.ruoyi</groupId>\n        <artifactId>ruoyi-generator</artifactId>\n    </dependency>\n\n    <!-- 系统业务模块 -->\n    <dependency>\n        <groupId>com.ruoyi</groupId>\n        <artifactId>ruoyi-system</artifactId>\n    </dependency>\n</dependencies>\n\n<build>\n    <plugins>\n        <!-- 只有 admin 配置 spring-boot-maven-plugin：整个应用从它打包 -->\n        <plugin>\n            <groupId>org.springframework.boot</groupId>\n            <artifactId>spring-boot-maven-plugin</artifactId>\n        </plugin>\n    </plugins>\n</build>"
+    },
+    {
+      "id": "ry-arch-tree",
+      "filePath": "ruoyi-vue-project-structure.txt",
+      "language": "ansi",
+      "runnableFileName": "project-structure.txt",
+      "summary": "官方仓库顶层结构对照：每个目录对应一个模块，一眼定位代码该放哪。",
+      "sourceNote": "RuoYi-Vue 官方仓库顶层目录",
+      "code": "RuoYi-Vue\n├── ruoyi-admin     // 后端启动入口 + 页面资源\n│   └── src/main/resources/application.yml\n├── ruoyi-common    // 通用工具：AjaxResult、注解、常量\n│   └── src/main/java/com/ruoyi/common/core/domain/AjaxResult.java\n├── ruoyi-framework // 框架核心：Security 配置、JWT 过滤器、数据源\n│   └── src/main/java/com/ruoyi/framework/config/SecurityConfig.java\n├── ruoyi-quartz    // 定时任务\n├── ruoyi-generator // 代码生成器\n├── ruoyi-system    // 系统业务：用户/角色/菜单/部门\n│   └── src/main/java/com/ruoyi/system/service/impl/SysUserServiceImpl.java\n├── sql             // 初始化脚本\n└── pom.xml         // 聚合父 POM，统一版本管理"
+    }
+  ],
+  "misconceptions": [
+    "「六模块是随意的包划分，放哪都行」——依赖方向有硬约束：common 不依赖任何业务模块，破坏它 Maven 构建直接失败。",
+    "「业务代码应写在 framework 里」——framework 是基建（安全/数据源/切面），业务放 system（或自建业务模块），放错位置会让基建模块反向膨胀。",
+    "「admin 只是个启动类」——它同时聚合全部模块并持有打包插件，是唯一被 spring-boot-maven-plugin 处理的模块。",
+    "「quartz/generator 与系统不可分割」——不需要定时任务或代码生成的项目，可直接从 admin 的依赖里摘除这两个模块，主流程不受影响。"
+  ],
+  "tags": ["RuoYi", "多模块", "架构"],
+  "prereq": ["sb-application-class"]
+}
