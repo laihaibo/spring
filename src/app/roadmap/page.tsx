@@ -9,12 +9,9 @@ export const metadata = { title: "学习路线图" };
 export default function RoadmapPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 md:max-w-4xl md:py-8">
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold">学习路线图</h1>
-        <p className="mt-1 text-[13.5px] text-muted-foreground">
-          按前置依赖深度分列：从左往右，先修完左边再修右边。
-        </p>
-      </header>
+      <p className="mb-5 text-[13.5px] text-muted-foreground">
+        按前置依赖深度分列：从左往右，先修完左边再修右边。
+      </p>
 
       {TRACKS.map((track) => {
         const topics = getTopicsByTrack(track);

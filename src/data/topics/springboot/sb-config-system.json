@@ -1,0 +1,35 @@
+{
+  "id": "sb-config-system",
+  "track": "springboot",
+  "level": 1,
+  "title": "配置体系：application.yml、优先级与 @ConfigurationProperties",
+  "brief": "配置从哪来、谁覆盖谁、怎么安全地绑定到对象——Spring Boot 配置三板斧。",
+  "explanation": "## 配置文件与加载位置\n\nSpring Boot 默认从四个位置找 `application.yml` / `application.properties`，**优先级从高到低**：\n\n1. 项目根目录 `config/` 子目录\n2. 项目根目录\n3. 类路径 `config/`（resources/config）\n4. 类路径根（resources/）\n\n高优先级位置的同名配置**覆盖**低优先级。此外还有命令行参数（`--server.port=9090`）、环境变量等外部来源，命令行优先级高于所有配置文件。\n\n```yaml path=application.yml\nserver:\n  port: 8080\n\napp:\n  mail:\n    host: smtp.example.com\n    port: 465\n    from: noreply@example.com\n```\n\n## 两种读取姿势\n\n**@Value**：单个值注入，适合零星几个配置：\n\n```java path=MailService.java\n@Value(\"${app.mail.host}\")\nprivate String host;\n```\n\n**@ConfigurationProperties（推荐）**：整块配置绑定到一个对象，类型安全、支持校验、IDE 有提示：\n\n```java path=MailProperties.java\n@ConfigurationProperties(prefix = \"app.mail\")\npublic class MailProperties {\n    private String host;\n    private int port;\n    private String from;\n    // getter/setter\n}\n```\n\n生效三选一：类上 `@Component`，或配置类上 `@EnableConfigurationProperties(MailProperties.class)`（官方自动配置类都用这种）。\n\n## 松散绑定\n\n`app.mail.hostName` 可以写成 `app.mail.hostname`、`app.mail.host-name`、环境变量 `APP_MAIL_HOSTNAME`——都能绑定到 `hostName` 字段。yml 推荐小写加连字符（kebab-case）。\n\n## 同名 key 的覆盖链（记住口令：命令行 > 环境变量 > 外部文件 > 内部文件）",
+  "analogy": "配置体系像公司的着装规范来源。公司制度手册（application.yml，类路径根）写着「正装」；部门经理口头补了一条「周五休闲」（外部 config/ 目录），部门说了算（覆盖公司默认）；老板今天突然说「今天全员 T 恤」（命令行参数），一锤定音——**越靠近执行现场、越临时的指令优先级越高**。@ConfigurationProperties 相当于给「着装要求」整章建一个登记表（对象），一章一章读进来；@Value 则是一条一条抄便签。",
+  "codeExamples": [
+    {
+      "id": "sb-config-props",
+      "filePath": "src/main/java/com/example/mail/MailProperties.java",
+      "language": "java",
+      "runnableFileName": "MailProperties.java",
+      "summary": "@ConfigurationProperties 整块绑定 + JSR-303 校验：配置错了启动即报错。",
+      "code": "package com.example.mail;\n\nimport jakarta.validation.constraints.Min;\nimport jakarta.validation.constraints.NotBlank;\nimport org.springframework.boot.context.properties.ConfigurationProperties;\nimport org.springframework.validation.annotation.Validated;\n\n@ConfigurationProperties(prefix = \"app.mail\")\n@Validated\npublic class MailProperties {\n\n    @NotBlank\n    private String host;\n\n    @Min(1)\n    private int port = 465;\n\n    private String from;\n\n    public String getHost() {\n        return host;\n    }\n\n    public void setHost(String host) {\n        this.host = host;\n    }\n\n    public int getPort() {\n        return port;\n    }\n\n    public void setPort(int port) {\n        this.port = port;\n    }\n\n    public String getFrom() {\n        return from;\n    }\n\n    public void setFrom(String from) {\n        this.from = from;\n    }\n}"
+    },
+    {
+      "id": "sb-config-enable",
+      "filePath": "src/main/java/com/example/mail/MailConfig.java",
+      "language": "java",
+      "runnableFileName": "MailConfig.java",
+      "summary": "@ConfigurationProperties 的两种生效方式之一：@EnableConfigurationProperties（官方推荐）。",
+      "code": "package com.example.mail;\n\nimport org.springframework.boot.context.properties.EnableConfigurationProperties;\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\n\n@Configuration\n@EnableConfigurationProperties(MailProperties.class)\npublic class MailConfig {\n\n    @Bean\n    public MailService mailService(MailProperties properties) {\n        // 属性对象本身就是一个 Bean，构造器注入即可使用\n        return new MailService(properties.getHost(), properties.getPort());\n    }\n}\n\nclass MailService {\n    private final String host;\n    private final int port;\n\n    MailService(String host, int port) {\n        this.host = host;\n        this.port = port;\n    }\n\n    void send(String to) {\n        System.out.println(\"connect \" + host + \":\" + port + \" -> \" + to);\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「application.yml 里所有配置都会被读取使用」——只有被某处绑定/读取的配置才有意义；自定义配置不建属性类就只能靠 @Value 散读。",
+    "「@ConfigurationProperties 需要 getter/setter 以外还要 @Component」——两种生效方式二选一：@Component 或 @EnableConfigurationProperties，官方自动配置统一用后者。",
+    "「命令行参数优先级低于配置文件」——恰恰相反，--server.port=9090 覆盖一切文件里的同名配置。",
+    "「松散绑定对 @Value 同样生效」——@Value 严格按占位符原文匹配，松散绑定是 @ConfigurationProperties 的专属能力。"
+  ],
+  "tags": ["配置", "ConfigurationProperties", "优先级"],
+  "prereq": ["sb-application-class"]
+}

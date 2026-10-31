@@ -1,0 +1,35 @@
+{
+  "id": "sb-autoconfiguration",
+  "track": "springboot",
+  "level": 2,
+  "title": "自动装配原理：@EnableAutoConfiguration 与条件注解",
+  "brief": "Spring Boot 怎么知道你缺什么就配什么？候选配置清单 + @Conditional 条件过滤，两条腿走路。",
+  "explanation": "## 自动装配的两条腿\n\n**第一条腿：候选清单**。`@EnableAutoConfiguration` 通过 `@Import(AutoConfigurationImportSelector.class)` 读取一个固定清单：所有 jar 包里 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 文件中列出的自动配置类（Boot 2.7 前是 `spring.factories`）。spring-boot-autoconfigure 包里列了 140+ 个候选配置类——**注意只是候选**。\n\n**第二条腿：条件过滤**。每个自动配置类上都挂满条件注解，条件不满足就直接跳过：\n\n- `@ConditionalOnClass`：类路径存在某个类才生效（引入 spring-web 依赖 → 声明 MVC 相关配置生效）\n- `@ConditionalOnMissingBean`：容器里没有该 Bean 才生效（**用户优先**：你配了就用你的）\n- `@ConditionalOnProperty`：某配置项满足条件\n\n```java path=DataSourceAutoConfiguration.java\n@AutoConfiguration\n@ConditionalOnClass(DataSource.class)          // 类路径有 DataSource 才看下去\npublic class DataSourceAutoConfiguration {\n\n    @Bean\n    @ConditionalOnMissingBean                   // 你自己配了 DataSource 就用你的\n    public DataSource dataSource() {\n        return new HikariDataSource();\n    }\n}\n```\n\n## 为什么「加个依赖就能用」\n\n以 `spring-boot-starter-web` 为例：它把 spring-web 等依赖带进类路径 → `@ConditionalOnClass(DispatcherServlet.class)` 满足 → `WebMvcAutoConfiguration` 生效 → 注册 DispatcherServlet、默认视图解析等几十个 Bean。你一行配置没写，MVC 就能跑——因为「类路径上有 Web 相关类」这件事本身就是条件。\n\n## 调试武器：--debug\n\n启动加 `--debug`（或 `debug=true` 配置），条件评估报告会打印哪些配置类**匹配**（Positive matches）、哪些**不匹配**（Negative matches）以及原因——排查「自动配置为什么没生效」的第一工具。",
+  "analogy": "自动装配像一家智能装修公司。它的手册里列着几百套标准装修方案（候选清单：AutoConfiguration.imports），但每套方案都有开工前提（条件注解）：「客户买了厨房电器（类路径有某依赖）我才装厨房方案」「客户自己已经找好了橱柜（容器里已有该 Bean）我就不重复装」（用户优先）。装修公司进场先勘察（评估条件），只启动满足前提的方案。你觉得某套方案没装上？打开勘察报告（--debug）看哪条前提不满足。",
+  "codeExamples": [
+    {
+      "id": "sb-auto-custom",
+      "filePath": "src/main/java/com/example/auto/GreetingAutoConfiguration.java",
+      "language": "java",
+      "runnableFileName": "GreetingAutoConfiguration.java",
+      "summary": "自定义一个自动配置类：条件注解 + 用户优先 + 配置属性绑定，结构与官方完全一致。",
+      "code": "package com.example.auto;\n\nimport org.springframework.boot.autoconfigure.AutoConfiguration;\nimport org.springframework.boot.autoconfigure.condition.ConditionalOnClass;\nimport org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;\nimport org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;\nimport org.springframework.boot.context.properties.EnableConfigurationProperties;\nimport org.springframework.context.annotation.Bean;\n\n@AutoConfiguration\n@ConditionalOnClass(Greeter.class)\n@EnableConfigurationProperties(GreetingProperties.class)\npublic class GreetingAutoConfiguration {\n\n    @Bean\n    @ConditionalOnMissingBean\n    @ConditionalOnProperty(name = \"greeting.enabled\", havingValue = \"true\", matchIfMissing = true)\n    public Greeter greeter(GreetingProperties properties) {\n        return new Greeter(properties.getPrefix());\n    }\n}\n\nclass Greeter {\n    private final String prefix;\n    Greeter(String prefix) {\n        this.prefix = prefix;\n    }\n    String greet(String name) {\n        return prefix + \", \" + name;\n    }\n}"
+    },
+    {
+      "id": "sb-auto-properties",
+      "filePath": "src/main/java/com/example/auto/GreetingProperties.java",
+      "language": "java",
+      "runnableFileName": "GreetingProperties.java",
+      "summary": "配套的配置属性类：application.yml 里的 greeting.prefix 会被绑定进来。",
+      "code": "package com.example.auto;\n\nimport org.springframework.boot.context.properties.ConfigurationProperties;\n\n@ConfigurationProperties(prefix = \"greeting\")\npublic class GreetingProperties {\n\n    /** application.yml: greeting.prefix=你好 */\n    private String prefix = \"Hello\";\n\n    public String getPrefix() {\n        return prefix;\n    }\n\n    public void setPrefix(String prefix) {\n        this.prefix = prefix;\n    }\n}\n\n// 对应的注册文件（Spring Boot 2.7+）：\n// src/main/resources/META-INF/spring/\n//   org.springframework.boot.autoconfigure.AutoConfiguration.imports\n// 内容只有一行：\n//   com.example.auto.GreetingAutoConfiguration"
+    }
+  ],
+  "misconceptions": [
+    "「自动装配会把清单里 140+ 个配置类全部注册」——它们只是候选，条件评估后大部分会被跳过，最终生效的通常只有与你引入依赖匹配的十几个。",
+    "「自动配置优先于用户配置」——恰恰相反：@ConditionalOnMissingBean 保证了用户定义的 Bean 优先，自动配置只是兜底。",
+    "「@ConditionalOnClass 检查的是容器里的 Bean」——它检查的是类路径上是否存在该类（编译期依赖），与容器内容无关。",
+    "「自动配置类没有生效一定是 bug」——先看 --debug 的条件评估报告：多半是缺依赖或配置项不满足，属于预期行为。"
+  ],
+  "tags": ["自动装配", "Conditional", "AutoConfiguration"],
+  "prereq": ["sb-application-class"]
+}

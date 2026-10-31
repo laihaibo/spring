@@ -1,0 +1,67 @@
+{
+  "topicId": "sb-autoconfiguration",
+  "quizzes": [
+    {
+      "id": "q-sbauto-01",
+      "topicId": "sb-autoconfiguration",
+      "kind": "single",
+      "question": "Spring Boot 2.7+ 中，自动装配的候选配置类清单来自哪里？",
+      "options": {
+        "A": "启动类 @ComponentScan 扫描到的所有 @Configuration 类",
+        "B": "各 jar 包内 META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports 文件",
+        "C": "application.yml 中 spring.factories 配置项",
+        "D": "JVM 启动参数 -Dautoconfig 列出的类"
+      },
+      "answer": "B",
+      "explanation": "AutoConfigurationImportSelector 读取类路径上所有 AutoConfiguration.imports 文件汇总候选清单。2.7 之前的老位置是 META-INF/spring.factories（已废弃迁移）。A 是组件扫描的范畴，与自动装配是两条独立机制。",
+      "optionExplanations": {
+        "A": "组件扫描找的是你自己的类，自动装配读的是 jar 包内的声明清单。",
+        "B": "正确，Spring Boot 2.7+ 的标准位置。",
+        "C": "spring.factories 是文件不是配置项，且 2.7+ 已不再用于自动配置。",
+        "D": "没有这个机制。"
+      },
+      "designWhy": "「清单在哪」是自动装配原理最常被问到的落地点，也是排查自动配置问题时的第一站；同时区分它与组件扫描两条不同机制。",
+      "relatedTopicIds": ["sb-application-class", "sb-starter"]
+    },
+    {
+      "id": "q-sbauto-02",
+      "topicId": "sb-autoconfiguration",
+      "kind": "judge",
+      "question": "你手动定义了一个 DataSource Bean 后，DataSourceAutoConfiguration 里 @ConditionalOnMissingBean 标注的 dataSource Bean 就不会再注册。",
+      "answer": true,
+      "explanation": "@ConditionalOnMissingBean 的语义是「容器里还没有这类 Bean 时我才注册」——这正是「用户配置优先，自动配置兜底」的实现方式。想要覆盖自动配置的默认值，手动定义同名职责的 Bean 即可。",
+      "optionExplanations": {
+        "true": "正确，用户优先是自动装配体系的设计铁律。",
+        "false": "若自动配置抢占用户的 Bean，Spring Boot 的约定优于配置就成了约定覆盖配置。"
+      },
+      "designWhy": "「用户优先」是自动装配最重要的行为契约，明白了它，你就知道该在什么时候自己定义 Bean 来覆盖默认行为。",
+      "relatedTopicIds": ["bean-registration", "sb-config-system"]
+    },
+    {
+      "id": "q-sbauto-03",
+      "topicId": "sb-autoconfiguration",
+      "kind": "code-completion",
+      "codePath": "CacheAutoConfiguration.java",
+      "language": "java",
+      "codeTemplate": "@AutoConfiguration\n@__1__(CacheManager.class)   // 类路径存在 CacheManager 才生效\npublic class CacheAutoConfiguration {\n\n    @Bean\n    @__2__                      // 用户已经定义了 CacheManager 就不再注册\n    public CacheManager cacheManager() {\n        return new ConcurrentMapCacheManager();\n    }\n}",
+      "blanks": [
+        {
+          "candidates": ["ConditionalOnClass", "ConditionalOnBean", "ConditionalOnProperty"],
+          "answer": "ConditionalOnClass"
+        },
+        {
+          "candidates": ["ConditionalOnMissingBean", "ConditionalOnClass", "Primary"],
+          "answer": "ConditionalOnMissingBean"
+        }
+      ],
+      "question": "补全自动配置类的两个关键条件注解：按「类路径依赖」过滤用哪个？保证「用户优先」用哪个？",
+      "explanation": "@ConditionalOnClass 检查类路径上是否存在指定类（对应「引入依赖即触发」）；@ConditionalOnMissingBean 检查容器中是否已有同类型 Bean（对应「用户定义优先，自动配置兜底」）。两者组合是官方自动配置类的标准写法。",
+      "optionExplanations": {
+        "空1": "题干明确说「类路径存在 CacheManager 才生效」，这是 @ConditionalOnClass 的定义。",
+        "空2": "题干明确说「用户已经定义了就不再注册」，这是 @ConditionalOnMissingBean 的定义。"
+      },
+      "designWhy": "自己写自动配置类（或读懂官方源码）就绕不开这两个注解；把「依赖触发」与「用户优先」分别落到具体注解上，原理才真正落地。",
+      "relatedTopicIds": ["sb-starter"]
+    }
+  ]
+}

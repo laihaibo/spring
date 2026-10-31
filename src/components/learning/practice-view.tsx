@@ -44,12 +44,9 @@ export function PracticeView() {
 
   return (
     <div className="space-y-5">
-      <header>
-        <h1 className="text-xl font-semibold">刷题与错题本</h1>
-        <p className="mt-1 text-[13.5px] text-muted-foreground">
-          答错的题自动进入错题本，7 天后间隔重现；答对即移出。
-        </p>
-      </header>
+      <p className="text-[13.5px] text-muted-foreground">
+        答错的题自动进入错题本，7 天后间隔重现；答对即移出。
+      </p>
 
       <LiquidGlassCard soft className="p-4">
         <div className="flex items-center justify-between gap-3">

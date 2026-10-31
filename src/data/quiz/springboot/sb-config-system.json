@@ -1,0 +1,75 @@
+{
+  "topicId": "sb-config-system",
+  "quizzes": [
+    {
+      "id": "q-sbcf-01",
+      "topicId": "sb-config-system",
+      "kind": "single",
+      "question": "以下配置来源同时设置了 server.port，最终生效的是？（命令行 --server.port=9090；环境变量 SERVER_PORT=8081；外部 config/application.yml 写 8082；jar 内 application.yml 写 8080）",
+      "options": {
+        "A": "8080，jar 内配置文件最稳定",
+        "B": "8082，外部 config 目录优先于 jar 内文件",
+        "C": "9090，命令行参数优先级最高",
+        "D": "8081，环境变量优先于一切"
+      },
+      "answer": "C",
+      "explanation": "优先级链：命令行参数 > 环境变量 > jar 外配置文件（config/ > 根目录）> jar 内配置文件（config/ > 根）。命令行 --server.port=9090 位于链顶，直接生效。",
+      "optionExplanations": {
+        "A": "jar 内文件是优先级最低的来源之一。",
+        "B": "外部 config 确实高于 jar 内，但低于命令行与环境变量。",
+        "C": "正确，命令行参数在整条链的最顶端。",
+        "D": "环境变量高于文件但低于命令行。"
+      },
+      "designWhy": "配置优先级是运维改端口「不生效」事故的头号原因，用四来源对比题把整条链一次性钉死。",
+      "relatedTopicIds": ["sb-profiles"]
+    },
+    {
+      "id": "q-sbcf-02",
+      "topicId": "sb-config-system",
+      "kind": "multiple",
+      "question": "关于 @ConfigurationProperties 与 @Value 的对比，正确的有哪些？（多选）",
+      "options": {
+        "A": "@ConfigurationProperties 支持松散绑定，app.mail.host-name 能绑定 hostName 字段",
+        "B": "@ConfigurationProperties 适合绑定一整块相关配置，配合 @Validated 可在启动期校验",
+        "C": "@Value 按 ${key} 占位符严格匹配，不支持松散绑定",
+        "D": "@ConfigurationProperties 必须在类上加 @Component 才能生效，别无他法"
+      },
+      "answers": ["A", "B", "C"],
+      "explanation": "松散绑定、整块绑定、启动期校验都是 @ConfigurationProperties 的能力；@Value 严格匹配。D 错在「别无他法」——@EnableConfigurationProperties 是官方自动配置统一使用的另一种生效方式。",
+      "optionExplanations": {
+        "A": "正确，kebab/camel/underscore/大写环境变量风格均可绑定。",
+        "B": "正确，这也是官方属性类的标准形态。",
+        "C": "正确，松散绑定是 @ConfigurationProperties 专属。",
+        "D": "@Component 或 @EnableConfigurationProperties 二选一即可。"
+      },
+      "designWhy": "两个注解的能力边界是日常配置读取的核心决策点，多选形式把「能做什么」一次考全。",
+      "relatedTopicIds": ["sb-starter"]
+    },
+    {
+      "id": "q-sbcf-03",
+      "topicId": "sb-config-system",
+      "kind": "code-completion",
+      "codePath": "StorageProperties.java",
+      "language": "java",
+      "codeTemplate": "// application.yml:\n// storage:\n//   upload-dir: /data/upload\n//   max-size-mb: 100\n\n@ConfigurationProperties(prefix = \"__1__\")\n@Validated\npublic class StorageProperties {\n\n    @NotBlank\n    private String uploadDir;   // 松散绑定自 upload-dir\n\n    @Min(1)\n    private int maxSizeMb;      // 松散绑定自 max-size-mb\n\n    // getter / setter 略\n}\n\n// 在配置类上启用该属性 Bean：\n@Configuration\n@__2__(StorageProperties.class)\npublic class StorageConfig {\n}",
+      "blanks": [
+        {
+          "candidates": ["storage", "app.storage", "STORAGE"],
+          "answer": "storage"
+        },
+        {
+          "candidates": ["EnableConfigurationProperties", "ComponentScan", "Import"],
+          "answer": "EnableConfigurationProperties"
+        }
+      ],
+      "question": "补全属性类：prefix 应与 yml 顶层 key 一致填什么？在配置类上启用属性 Bean 的注解是什么？",
+      "explanation": "prefix 必须与 yml 中配置块的顶层 key（storage）完全一致；松散绑定只作用于 key 内部的风格差异，不影响 prefix 本身。@EnableConfigurationProperties(StorageProperties.class) 是不加 @Component 时的标准启用方式。",
+      "optionExplanations": {
+        "空1": "prefix 对应 yml 的顶层块名 storage；app.storage 是多出来的层级，绑不上。",
+        "空2": "这是 @ConfigurationProperties 不加 @Component 时的官方启用注解。"
+      },
+      "designWhy": "prefix 对不上是属性绑定静默失败（全为 null/默认值）的头号原因；把 prefix 与启用注解填对，配置绑定才算真正学会。",
+      "relatedTopicIds": ["sb-profiles"]
+    }
+  ]
+}

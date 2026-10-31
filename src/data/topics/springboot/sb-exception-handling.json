@@ -1,0 +1,35 @@
+{
+  "id": "sb-exception-handling",
+  "track": "springboot",
+  "level": 1,
+  "title": "全局异常处理：@RestControllerAdvice 统一响应",
+  "brief": "一个切面管住全站异常：业务异常转错误码、未知异常兜底 500，前端永远拿到统一 JSON 结构。",
+  "explanation": "## 没有统一异常处理的混乱\n\n异常直接抛到框架层 → 返回白页/默认错误 JSON；每个 Controller 自己 try-catch → 代码重复且响应结构五花八门。\n\n## 统一方案\n\n```java path=GlobalExceptionHandler.java\n@RestControllerAdvice\npublic class GlobalExceptionHandler {\n\n    /** 业务异常：转成对应错误码，HTTP 状态 200 + code 区分 */\n    @ExceptionHandler(BizException.class)\n    public AjaxResult handleBiz(BizException e) {\n        return AjaxResult.error(e.getCode(), e.getMessage());\n    }\n\n    /** 参数校验失败：400 */\n    @ExceptionHandler(MethodArgumentNotValidException.class)\n    public AjaxResult handleValid(MethodArgumentNotValidException e) {\n        String msg = e.getBindingResult().getFieldErrors().stream()\n            .map(f -> f.getField() + \" \" + f.getDefaultMessage())\n            .collect(Collectors.joining(\"; \"));\n        return AjaxResult.error(400, msg);\n    }\n\n    /** 未知异常兜底：日志必须打，别吞栈 */\n    @ExceptionHandler(Exception.class)\n    public AjaxResult handleUnknown(Exception e) {\n        log.error(\"未处理异常\", e);\n        return AjaxResult.error(500, \"系统繁忙，请稍后重试\");\n    }\n}\n```\n\n- **@RestControllerAdvice** = @ControllerAdvice + @ResponseBody：拦截全站 Controller 抛出的异常，返回值自动序列化为 JSON\n- 匹配规则：多个 @ExceptionHandler 都能处理时，**选最具体的类型**（子类优先于父类）\n- 兜底 Exception 处理器里**必须打日志**——对外说「系统繁忙」，对内留全栈现场\n\n## 统一响应结构\n\n前后端约定一种结构（RuoYi 用 `AjaxResult{code, msg, data}`）：\n\n```java path=AjaxResult.java\npublic class AjaxResult {\n    private int code;      // 200 成功，500 失败，401 未登录...\n    private String msg;\n    private Object data;\n}\n```\n\n这样前端只需按 code 分支处理，异常与正常走同一条通道。\n\n## 与 HTTP 状态码的关系\n\n国内前后端分离常见「HTTP 恒 200 + body.code 表达业务状态」（RuoYi 风格）；也有团队坚持 RESTful 用 HTTP 状态码表达。**关键是全站统一一种约定**，不要混用。",
+  "analogy": "全局异常处理器像商场的前台客服中心。没有它，每个店铺（Controller）遇到顾客投诉（异常）各答各的，有的装没听见（异常上抛出白页）；有了它，所有投诉统一转交前台：熟客业务投诉（BizException）按规章给补偿码，顾客填单不规范（参数校验）温和指出哪里填错，突发意外（未知异常）先安抚「稍等我们处理」并**立刻给内部值班室打报告（log.error 留全栈）**。统一话术（统一响应结构）让顾客（前端）永远知道去哪听答复。",
+  "codeExamples": [
+    {
+      "id": "sb-exception-handler",
+      "filePath": "src/main/java/com/example/exception/GlobalExceptionHandler.java",
+      "language": "java",
+      "runnableFileName": "GlobalExceptionHandler.java",
+      "summary": "三级处理器：业务异常 / 参数校验 / 兜底；匹配就近原则，兜底必须留日志。",
+      "code": "package com.example.exception;\n\nimport java.util.stream.Collectors;\nimport lombok.extern.slf4j.Slf4j;\nimport org.springframework.web.bind.MethodArgumentNotValidException;\nimport org.springframework.web.bind.annotation.ExceptionHandler;\nimport org.springframework.web.bind.annotation.RestControllerAdvice;\n\n@Slf4j\n@RestControllerAdvice\npublic class GlobalExceptionHandler {\n\n    @ExceptionHandler(BizException.class)\n    public AjaxResult handleBiz(BizException e) {\n        return AjaxResult.error(e.getCode(), e.getMessage());\n    }\n\n    @ExceptionHandler(MethodArgumentNotValidException.class)\n    public AjaxResult handleValid(MethodArgumentNotValidException e) {\n        String detail = e.getBindingResult().getFieldErrors().stream()\n            .map(f -> f.getField() + \" \" + f.getDefaultMessage())\n            .collect(Collectors.joining(\"; \"));\n        return AjaxResult.error(400, detail);\n    }\n\n    @ExceptionHandler(Exception.class)\n    public AjaxResult handleUnknown(Exception e) {\n        // 对外模糊，对内详细：全栈现场必须落日志\n        log.error(\"未处理异常\", e);\n        return AjaxResult.error(500, \"系统繁忙，请稍后重试\");\n    }\n}\n\nclass BizException extends RuntimeException {\n    private final int code;\n\n    BizException(int code, String message) {\n        super(message);\n        this.code = code;\n    }\n\n    int getCode() {\n        return code;\n    }\n}\n\nclass AjaxResult {\n    private final int code;\n    private final String msg;\n\n    private AjaxResult(int code, String msg) {\n        this.code = code;\n        this.msg = msg;\n    }\n\n    static AjaxResult error(int code, String msg) {\n        return new AjaxResult(code, msg);\n    }\n}"
+    },
+    {
+      "id": "sb-exception-throw",
+      "filePath": "src/main/java/com/example/order/OrderService.java",
+      "language": "java",
+      "runnableFileName": "OrderService.java",
+      "summary": "业务代码的姿势：用 BizException 表达业务失败，交给全局处理器转响应。",
+      "code": "package com.example.order;\n\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class OrderService {\n\n    private final OrderMapper orderMapper;\n\n    public OrderService(OrderMapper orderMapper) {\n        this.orderMapper = orderMapper;\n    }\n\n    public String cancel(long orderId, long userId) {\n        var order = orderMapper.selectById(orderId);\n        if (order == null) {\n            throw new BizException(404, \"订单不存在\");\n        }\n        if (order.ownerId() != userId) {\n            throw new BizException(403, \"无权操作他人订单\");\n        }\n        orderMapper.updateStatus(orderId, \"CANCELLED\");\n        return \"ok\";\n    }\n}\n\nclass BizException extends RuntimeException {\n    private final int code;\n\n    BizException(int code, String message) {\n        super(message);\n        this.code = code;\n    }\n\n    int getCode() {\n        return code;\n    }\n}\n\ninterface OrderMapper {\n    OrderDTO selectById(long id);\n    void updateStatus(long id, String status);\n}\n\nrecord OrderDTO(long id, long ownerId, String status) {}"
+    }
+  ],
+  "misconceptions": [
+    "「@ExceptionHandler(Exception.class) 会拦截所有异常」——它只处理到达 Controller 层的；过滤器链中的异常（如认证失败）由 Security 自己的入口点处理，不走它。",
+    "「兜底处理器吞掉异常就安全了」——不打日志的吞异常等于销毁现场；对外模糊对内详细才是正确姿势。",
+    "「HTTP 状态码必须与 body.code 一致」——RuoYi 风格 HTTP 恒 200 + code 表意；RESTful 风格用 HTTP 码表达。两种都是约定，全站统一即可。",
+    "「@RestControllerAdvice 只能处理异常」——它还能配合 @ModelAttribute/@InitBinder 做全局数据绑定，异常处理只是最常用的一面。"
+  ],
+  "tags": ["异常处理", "RestControllerAdvice", "统一响应"],
+  "prereq": ["sb-application-class", "aop-concepts"]
+}

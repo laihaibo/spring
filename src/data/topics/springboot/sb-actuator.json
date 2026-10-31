@@ -1,0 +1,35 @@
+{
+  "id": "sb-actuator",
+  "track": "springboot",
+  "level": 1,
+  "title": "Actuator：生产级监控端点与健康检查",
+  "brief": "一行依赖获得 /health、/metrics 等运维端点——但要懂得「按需暴露」，别把内网信息裸奔到公网。",
+  "explanation": "## 引入与端点\n\n```xml path=pom.xml\n<dependency>\n    <groupId>org.springframework.boot</groupId>\n    <artifactId>spring-boot-starter-actuator</artifactId>\n</dependency>\n```\n\n引入后即获得一系列运维端点（默认挂在 `/actuator` 下）：\n\n| 端点 | 作用 |\n|---|---|\n| /actuator/health | 健康检查（DB/Redis/磁盘等自动聚合），**K8s 存活探针标配** |\n| /actuator/info | 应用信息（版本、构建号，需自行配置） |\n| /actuator/metrics | JVM 内存、GC、HTTP 请求延迟等指标 |\n| /actuator/env | 环境变量与配置（**敏感！**） |\n| /actuator/beans | 容器内全部 Bean（**敏感！**） |\n| /actuator/loggers | 运行期动态调整日志级别 |\n\n## 暴露策略（核心考点）\n\n默认只暴露 health（web 端）。其余端点要显式开启：\n\n```yaml path=application.yml\nmanagement:\n  endpoints:\n    web:\n      exposure:\n        include: health,info,metrics    # 按需暴露，绝不要 include: '*'\n  endpoint:\n    health:\n      show-details: when-authorized     # 详情只给授权用户看\n```\n\n历史上大量数据泄露事故源于 `/actuator/env`、`/actuator/heapdump` 直接暴露公网——**端点暴露 = 攻击面**，务必配合 Spring Security 或网关把 actuator 路径限制在内网/管理端口。\n\n## 健康检查的自定义\n\n```java path=ExternalApiHealthIndicator.java\n@Component\npublic class ExternalApiHealthIndicator extends AbstractHealthIndicator {\n\n    @Override\n    protected void doHealthCheck(Health.Builder builder) throws Exception {\n        // 依赖的第三方 API 是否可达，纳入 /health 的聚合结果\n        boolean reachable = pingExternalApi();\n        if (reachable) {\n            builder.up().withDetail(\"api\", \"ok\");\n        } else {\n            builder.down().withDetail(\"api\", \"timeout\");\n        }\n    }\n}\n```\n\n对接 K8s 时用 liveness/readiness 分离探针（Boot 2.3+ 提供 `/actuator/health/liveness` 与 `/readiness`）。",
+  "analogy": "Actuator 是给应用装的「仪表盘 + 体检接口」。汽车仪表盘默认只点亮最关键的油量和水温（health/info），转速、油耗表要去改装店选装（exposure.include 按需开启）。但仪表盘里也有行车记录仪和 OBD 诊断口（env/beans/heapdump）——它们能读出你所有隐私，绝不能把车门（管理端口）对路人敞开。自定义 HealthIndicator 就是给体检单加一项「自家发动机自检」。",
+  "codeExamples": [
+    {
+      "id": "sb-act-yaml",
+      "filePath": "src/main/resources/application.yml",
+      "language": "yaml",
+      "runnableFileName": "application-actuator.yml",
+      "summary": "安全的暴露配置：只开 health/info/metrics，详情需授权，端口独立于业务端口。",
+      "code": "management:\n  endpoints:\n    web:\n      exposure:\n        # 按需暴露；绝不要写 include: '*' 把 env/beans/heapdump 暴露出去\n        include: health,info,metrics\n  endpoint:\n    health:\n      # health 详情（各组件状态）仅授权后可见\n      show-details: when-authorized\n  server:\n    # 管理端点走独立端口，便于网络层隔离（不设则与业务同端口）\n    port: 9090\n\ninfo:\n  app:\n    name: demo-app\n    version: 1.2.0"
+    },
+    {
+      "id": "sb-act-health",
+      "filePath": "src/main/java/com/example/health/ExternalApiHealthIndicator.java",
+      "language": "java",
+      "runnableFileName": "ExternalApiHealthIndicator.java",
+      "summary": "自定义健康检查：第三方依赖是否可达纳入 /health 聚合，K8s 探针自动感知。",
+      "code": "package com.example.health;\n\nimport java.net.HttpURLConnection;\nimport java.net.URI;\nimport org.springframework.boot.actuate.health.AbstractHealthIndicator;\nimport org.springframework.boot.actuate.health.Health;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class ExternalApiHealthIndicator extends AbstractHealthIndicator {\n\n    @Override\n    protected void doHealthCheck(Health.Builder builder) throws Exception {\n        HttpURLConnection conn = (HttpURLConnection) URI\n            .create(\"https://api.example.com/ping\")\n            .toURL()\n            .openConnection();\n        conn.setConnectTimeout(1000);\n        conn.setReadTimeout(1000);\n\n        int status = conn.getResponseCode();\n        if (status == 200) {\n            builder.up().withDetail(\"external-api\", \"reachable\");\n        } else {\n            builder.down().withDetail(\"external-api\", \"status \" + status);\n        }\n    }\n}\n// 访问 /actuator/health 时，该项与 db/redis 等自动聚合"
+    }
+  ],
+  "misconceptions": [
+    "「引入 actuator 就能看到所有端点」——Web 端默认只暴露 /health，其余需在 exposure.include 显式声明。",
+    "「/actuator/health 只是给人看的」——它同时是 K8s/负载均衡的探针数据源，down 会触发实例摘除。",
+    "「actuator 端点放在业务同端口无所谓」——env/heapdump 等端点泄露配置与内存数据，生产应独立管理端口并加网络隔离。",
+    "「show-details: always 很方便」——健康详情会暴露内部组件拓扑与地址，生产环境用 when-authorized 或 never。"
+  ],
+  "tags": ["Actuator", "监控", "健康检查"],
+  "prereq": ["sb-application-class"]
+}

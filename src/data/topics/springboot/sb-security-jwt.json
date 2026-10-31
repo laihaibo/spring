@@ -1,0 +1,35 @@
+{
+  "id": "sb-security-jwt",
+  "track": "springboot",
+  "level": 2,
+  "title": "Spring Security + JWT：过滤器链与无状态认证",
+  "brief": "请求进来先过一串过滤器：认证看 Token、授权看权限。JWT 让服务器不再存会话。",
+  "explanation": "## Spring Security 的骨架：过滤器链\n\nSecurity 不是注解魔法，而是一条 **Servlet Filter 链**：请求先经过 `FilterChainProxy`，再依次通过十几个安全过滤器（SecurityContextPersistenceFilter → 认证过滤器 → 授权过滤器…），全部通过才到达你的 Controller。\n\n两个核心概念：\n\n- **Authentication 认证**：你是谁？（登录态校验）\n- **Authorization 授权**：你能干什么？（权限校验）\n\n## JWT 三段结构\n\n`Header.Payload.Signature`——分别 Base64Url 编码，用 `.` 连接：\n\n- **Header**：算法声明 `{\"alg\":\"HS256\"}`\n- **Payload**：声明（claims）：`{\"sub\":\"user1\",\"exp\":1700000000,\"roles\":[\"admin\"]}`——**只是 Base64，不是加密，任何人可解**，绝不能放密码\n- **Signature**：对前两段的签名（服务器密钥），保证 Token 未被篡改\n\n服务器**不存会话**：登录时签发 Token → 客户端存起来（localStorage/Cookie）→ 每次请求放 `Authorization: Bearer <token>` → 服务器验签即信。这就是**无状态认证**，天然适合集群与前后端分离（RuoYi 前后端分离版正是此方案）。\n\n## Spring Security + JWT 的关键配置\n\n```java path=SecurityConfig.java\n@Configuration\n@EnableWebSecurity\npublic class SecurityConfig {\n\n    @Bean\n    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {\n        http\n            .csrf(csrf -> csrf.disable())                    // 无状态 API 无需 CSRF\n            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))\n            .authorizeHttpRequests(auth -> auth\n                .requestMatchers(\"/auth/login\").permitAll()   // 登录接口放行\n                .requestMatchers(\"/admin/**\").hasRole(\"ADMIN\")\n                .anyRequest().authenticated())\n            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);\n        return http.build();\n    }\n}\n```\n\n自研 JWT 过滤器插在 `UsernamePasswordAuthenticationFilter` 之前：解析 Token → 验签 → 构造 `Authentication` 放入 SecurityContext。RuoYi 的 `JwtAuthenticationTokenFilter` 正是这个思路（第三批源码课见）。",
+  "analogy": "把整条请求链想象成进游乐园。过滤器链是一连串关卡：先查你有没有票（认证），再按票种放行项目（授权：VIP 手环玩全部、普通票玩部分）。传统 Session 是「票根存档在乐园」——每次入园乐园翻档案（有状态）；JWT 是一张**自证票据**：票面写着你的信息和有效期，还有乐园的防伪钢印（签名）——检票员只需要验钢印（验签），不用打电话回总台查档案（无状态）。注意票面是明文印刷的（Payload 可解码），别把银行卡密码印在票上，也别让伪造钢印的人混进来（密钥保管）。",
+  "codeExamples": [
+    {
+      "id": "sb-jwt-filter",
+      "filePath": "src/main/java/com/example/security/JwtAuthenticationFilter.java",
+      "language": "java",
+      "runnableFileName": "JwtAuthenticationFilter.java",
+      "summary": "自研 JWT 认证过滤器：从请求头解析 Token → 验签 → 构造认证对象放入上下文。",
+      "code": "package com.example.security;\n\nimport java.io.IOException;\nimport jakarta.servlet.FilterChain;\nimport jakarta.servlet.ServletException;\nimport jakarta.servlet.http.HttpServletRequest;\nimport jakarta.servlet.http.HttpServletResponse;\nimport org.springframework.security.authentication.UsernamePasswordAuthenticationToken;\nimport org.springframework.security.core.authority.SimpleGrantedAuthority;\nimport org.springframework.security.core.context.SecurityContextHolder;\nimport org.springframework.stereotype.Component;\nimport org.springframework.web.filter.OncePerRequestFilter;\n\n@Component\npublic class JwtAuthenticationFilter extends OncePerRequestFilter {\n\n    private final JwtService jwtService;\n\n    public JwtAuthenticationFilter(JwtService jwtService) {\n        this.jwtService = jwtService;\n    }\n\n    @Override\n    protected void doFilterInternal(HttpServletRequest request,\n                                    HttpServletResponse response,\n                                    FilterChain chain) throws ServletException, IOException {\n        String header = request.getHeader(\"Authorization\");\n        if (header != null && header.startsWith(\"Bearer \")) {\n            String token = header.substring(7);\n            try {\n                String username = jwtService.parseUsername(token);\n                var authorities = jwtService.parseRoles(token).stream()\n                    .map(SimpleGrantedAuthority::new)\n                    .toList();\n\n                var authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);\n                SecurityContextHolder.getContext().setAuthentication(authentication);\n            } catch (Exception invalid) {\n                SecurityContextHolder.clearContext();\n            }\n        }\n        chain.doFilter(request, response);\n    }\n}"
+    },
+    {
+      "id": "sb-jwt-service",
+      "filePath": "src/main/java/com/example/security/JwtService.java",
+      "language": "java",
+      "runnableFileName": "JwtService.java",
+      "summary": "JWT 的签发与解析（HMAC 密钥版）：签发含过期时间与角色，解析时自动验签。",
+      "code": "package com.example.security;\n\nimport java.util.Date;\nimport javax.crypto.SecretKey;\nimport io.jsonwebtoken.Claims;\nimport io.jsonwebtoken.Jwts;\nimport io.jsonwebtoken.security.Keys;\nimport org.springframework.beans.factory.annotation.Value;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class JwtService {\n\n    private final SecretKey key;\n    private final long expireMs;\n\n    public JwtService(@Value(\"${jwt.secret}\") String secret,\n                      @Value(\"${jwt.expire-ms:7200000}\") long expireMs) {\n        this.key = Keys.hmacShaKeyFor(secret.getBytes());\n        this.expireMs = expireMs;\n    }\n\n    public String issue(String username, java.util.List<String> roles) {\n        Date now = new Date();\n        return Jwts.builder()\n            .subject(username)\n            .claim(\"roles\", roles)\n            .issuedAt(now)\n            .expiration(new Date(now.getTime() + expireMs))\n            .signWith(key)\n            .compact();\n    }\n\n    /** 解析即验签：签名不符或已过期会抛异常 */\n    public String parseUsername(String token) {\n        return parse(token).getSubject();\n    }\n\n    @SuppressWarnings(\"unchecked\")\n    public java.util.List<String> parseRoles(String token) {\n        return (java.util.List<String>) parse(token).get(\"roles\");\n    }\n\n    private Claims parse(String token) {\n        return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();\n    }\n}\n// jwt.secret 从环境变量注入，绝不提交到代码库"
+    }
+  ],
+  "misconceptions": [
+    "「JWT 是加密的，Payload 很安全」——Payload 只是 Base64Url 编码，任何人可解；敏感数据不要放进去，靠签名防篡改而不是防偷看。",
+    "「JWT 无状态所以无法作废」——签出的 Token 在过期前始终有效；需要强制下线就要引入黑名单（Redis）或短有效期 + 刷新 Token 机制。",
+    "「关掉 CSRF 是偷懒」——无状态 API 不依赖 Cookie 会话时 CSRF 攻击面天然消失；一旦改用 Cookie 传 Token 必须重新开启。",
+    "「过滤器顺序无所谓」——JWT 过滤器必须插在认证判断之前；放错位置等于检票口设在出口。"
+  ],
+  "tags": ["Security", "JWT", "无状态", "过滤器链"],
+  "prereq": ["sb-application-class", "bean-registration"]
+}

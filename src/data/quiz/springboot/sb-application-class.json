@@ -1,0 +1,63 @@
+{
+  "topicId": "sb-application-class",
+  "quizzes": [
+    {
+      "id": "q-sbapp-01",
+      "topicId": "sb-application-class",
+      "kind": "multiple",
+      "question": "@SpringBootApplication 组合了哪三个注解？（多选）",
+      "options": {
+        "A": "@SpringBootConfiguration（本质是 @Configuration）",
+        "B": "@EnableAutoConfiguration（打开自动装配开关）",
+        "C": "@ComponentScan（开启组件扫描，默认扫启动类所在包及子包）",
+        "D": "@EnableWebMvc（接管 Spring MVC 的全部配置）"
+      },
+      "answers": ["A", "B", "C"],
+      "explanation": "三合一注解 = 配置类声明 + 自动装配开关 + 组件扫描。@EnableWebMvc 是完全接管 MVC 配置的注解，一旦加上 Spring Boot 对 MVC 的自动配置会全部退位，日常开发几乎不需要它。",
+      "optionExplanations": {
+        "A": "正确，让启动类本身成为一个配置类。",
+        "B": "正确，自动装配的总开关。",
+        "C": "正确，默认范围是启动类所在包及子包。",
+        "D": "@EnableWebMvc 不在其中，且加上会关闭 MVC 自动配置。"
+      },
+      "designWhy": "「三合一」是理解 Spring Boot 启动类的钥匙，多选形式逼你把三个注解逐个认全，而不是把它当黑盒。",
+      "relatedTopicIds": ["sb-autoconfiguration", "bean-registration"]
+    },
+    {
+      "id": "q-sbapp-02",
+      "topicId": "sb-application-class",
+      "kind": "judge",
+      "question": "启动类放在 com.app.boot 包，而 @Service 类在 com.app.biz 包，应用启动后注入会失败。",
+      "answer": true,
+      "explanation": "默认 @ComponentScan 以启动类所在包（com.app.boot）为根，com.app.biz 是它的兄弟包，扫不到。症状是启动不报错、但运行期 NoSuchBeanDefinitionException。解法：启动类移回根包 com.app，或显式 scanBasePackages。",
+      "optionExplanations": {
+        "true": "正确，兄弟包不在默认扫描范围内。",
+        "false": "如果扫得到，就不会有「启动类放根包」这条铁律了。"
+      },
+      "designWhy": "启动类错位是 Spring Boot 新手第一大坑，且症状隐蔽（启动成功、运行失败）；判断题把「不报错」这个迷惑性也一并钉住。",
+      "relatedTopicIds": ["bean-registration"]
+    },
+    {
+      "id": "q-sbapp-03",
+      "topicId": "sb-application-class",
+      "kind": "single",
+      "question": "SpringApplication.run(DemoApplication.class, args) 的返回值是什么？",
+      "options": {
+        "A": "void，容器启动后无法再访问",
+        "B": "ConfigurableApplicationContext，即刷新完成的 IoC 容器",
+        "C": "内嵌 Tomcat 的 Server 对象",
+        "D": "应用配置对象 Environment"
+      },
+      "answer": "B",
+      "explanation": "run() 返回刷新完成的容器（ConfigurableApplicationContext），可以在启动后继续取 Bean、发布事件或做健康检查。内嵌服务器和 Environment 都在容器内部，但返回值是容器本身。",
+      "optionExplanations": {
+        "A": "run 有返回值；main 方法虽然不接，但接住就能用。",
+        "B": "正确，这正是容器操作的标准入口。",
+        "C": "Tomcat 在容器刷新过程中启动，不是返回值。",
+        "D": "Environment 可通过 ctx.getEnvironment() 获得，但返回的是容器。"
+      },
+      "designWhy": "很多人天天写 SpringApplication.run 却从没接过返回值——接住容器是写启动期集成逻辑（预热、校验）的前提。",
+      "relatedTopicIds": ["ioc-container-basics"]
+    }
+  ]
+}

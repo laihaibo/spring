@@ -1,0 +1,66 @@
+{
+  "topicId": "sb-exception-handling",
+  "quizzes": [
+    {
+      "id": "q-sbeh-01",
+      "topicId": "sb-exception-handling",
+      "kind": "single",
+      "question": "同时存在 @ExceptionHandler(BizException.class) 与 @ExceptionHandler(Exception.class)，抛出 BizException 时谁处理？",
+      "options": {
+        "A": "随机选一个",
+        "B": "两个都执行",
+        "C": "BizException 的处理器：Spring 总是选择最具体（继承树最近）的匹配类型",
+        "D": "Exception 的处理器：它范围更大"
+      },
+      "answer": "C",
+      "explanation": "异常处理器的匹配遵循「最具体优先」：沿异常继承树找最近的处理方法，子类处理器胜出。因此可以放心写一个 Exception 兜底处理器，业务异常自动被更精确的处理器接走。",
+      "optionExplanations": {
+        "A": "异常路由是确定性的，按类型距离匹配。",
+        "B": "一个异常只有一个处理器生效。",
+        "C": "正确，最具体类型优先。",
+        "D": "范围大不等于优先级高，兜底恰是最后选择。"
+      },
+      "designWhy": "「最具体优先」让「业务精确处理 + 兜底防漏」的双层结构成立，是设计全局异常处理器的核心规则。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-sbeh-02",
+      "topicId": "sb-exception-handling",
+      "kind": "judge",
+      "question": "全局兜底处理器捕获未知异常后，返回「系统繁忙」即可，没必要再把异常栈打进日志。",
+      "answer": false,
+      "explanation": "兜底处理器是唯一能拿到未知异常现场的位置——不打日志等于销毁现场，排查将无从下手。正确姿势：对外返回模糊信息（不泄露内部细节），对内 log.error 留全栈。",
+      "optionExplanations": {
+        "true": "只回不给证据，线上问题永远变成「灵异事件」。",
+        "false": "正确：对外模糊、对内详细。"
+      },
+      "designWhy": "「吞异常不留日志」是线上排查的头号反模式，用一道判断题立规矩。",
+      "relatedTopicIds": ["sb-logging"]
+    },
+    {
+      "id": "q-sbeh-03",
+      "topicId": "sb-exception-handling",
+      "kind": "code-reading",
+      "codePath": "OrderController.java",
+      "language": "java",
+      "code": "@RestController\npublic class OrderController {\n\n    private final OrderService service;\n\n    public OrderController(OrderService service) {\n        this.service = service;\n    }\n\n    @PostMapping(\"/order/cancel/{id}\")\n    public AjaxResult cancel(@PathVariable long id) {\n        service.cancel(id, currentUserId());\n        return AjaxResult.success();\n    }\n}\n\n// OrderService.cancel:\n//   if (order == null) {\n//       throw new BizException(404, \"订单不存在\");\n//   }\n//   if (order.ownerId() != userId) {\n//       throw new BizException(403, \"无权操作他人订单\");\n//   }\n\n// GlobalExceptionHandler:\n//   @ExceptionHandler(BizException.class)\n//   public AjaxResult handleBiz(BizException e) {\n//       return AjaxResult.error(e.getCode(), e.getMessage());\n//   }",
+      "question": "请求 /order/cancel/999（订单不存在）时，Controller 里没有 try-catch，前端最终收到什么？",
+      "options": {
+        "A": "HTTP 500 白页，因为没有 try-catch",
+        "B": "统一的错误 JSON：code=404、msg=订单不存在——异常沿调用栈上抛，被 @RestControllerAdvice 拦截转换",
+        "C": "HTTP 200 成功，因为全局处理器吞了异常",
+        "D": "请求挂起直到超时"
+      },
+      "answer": "B",
+      "explanation": "业务代码专注抛出语义化异常（BizException），不必在每个 Controller 里 try-catch；异常沿调用栈自然上抛，@RestControllerAdvice 全局拦截并转换为统一响应结构。这套「抛-拦-转」机制正是业务代码保持干净的关键。",
+      "optionExplanations": {
+        "A": "异常未到框架默认页就被全局处理器截获。",
+        "B": "正确，抛-拦-转三步各司其职。",
+        "C": "返回的是错误结构，不是成功；code=404 表达业务失败。",
+        "D": "异常处理是同步的，不会挂起。"
+      },
+      "designWhy": "把「业务层抛异常、全局层转响应」的协作链完整走一遍，让你写出没有 try-catch 也不怕异常的业务代码。",
+      "relatedTopicIds": ["sb-redis-cache"]
+    }
+  ]
+}

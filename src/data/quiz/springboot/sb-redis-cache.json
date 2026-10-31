@@ -1,0 +1,72 @@
+{
+  "topicId": "sb-redis-cache",
+  "quizzes": [
+    {
+      "id": "q-sbrc-01",
+      "topicId": "sb-redis-cache",
+      "kind": "single",
+      "question": "同一个 @Cacheable 方法，第二次用相同参数调用时，方法体「不会执行」的前提是什么？",
+      "options": {
+        "A": "方法必须是 private 的",
+        "B": "调用必须经过 Spring 代理对象（从外部调用），且注解由代理拦截",
+        "C": "Redis 必须与数据库保持实时主从同步",
+        "D": "方法返回值必须是 int"
+      },
+      "answer": "B",
+      "explanation": "缓存注解由 AOP 代理拦截：命中缓存时代理直接返回，方法体根本不执行。类内 this 自调用不经过代理，注解失效——与 @Transactional 自调用失效同源。private 方法无法被代理覆写，同样失效。",
+      "optionExplanations": {
+        "A": "private 恰恰不能被代理拦截，注解失效。",
+        "B": "正确，代理拦截是注解生效的唯一途径。",
+        "C": "主从同步与注解是否拦截无关。",
+        "D": "返回值类型不限。"
+      },
+      "designWhy": "把第一批的代理知识与缓存注解打通——「自调用失效」在缓存场景重演一次，检验的是迁移理解能力。",
+      "relatedTopicIds": ["jdk-cglib-proxy", "aop-concepts"]
+    },
+    {
+      "id": "q-sbrc-02",
+      "topicId": "sb-redis-cache",
+      "kind": "judge",
+      "question": "updateProduct 方法修改了商品数据，只要商品查询方法上有 @Cacheable，缓存就会自动同步更新。",
+      "answer": false,
+      "explanation": "@Cacheable 只管「读」：未命中查库并写缓存。写操作必须显式配套 @CachePut（刷新该条）或 @CacheEvict（清除），否则缓存里永远是旧值——缓存一致性的维护责任在写路径。",
+      "optionExplanations": {
+        "true": "如果读注解能感知写操作，就不需要 @CacheEvict 这个注解了。",
+        "false": "正确：读注解与写一致性是两件事。"
+      },
+      "designWhy": "「缓存一致性靠写路径维护」是使用 Spring Cache 最常见的翻车点，直接用最典型的商品更新场景钉死。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-sbrc-03",
+      "topicId": "sb-redis-cache",
+      "kind": "code-completion",
+      "codePath": "UserCacheService.java",
+      "language": "java",
+      "codeTemplate": "@Service\npublic class UserCacheService {\n\n    // 查询：先查缓存，未命中执行方法并写入；key 为方法第一个参数\n    @Cacheable(value = \"user\", key = \"__1__\")\n    public User getById(long id) {\n        return userMapper.selectById(id);\n    }\n\n    // 修改：总是执行方法，并把返回值写回缓存\n    @Cache__2__(value = \"user\", key = \"#user.id\")\n    public User update(User user) {\n        userMapper.update(user);\n        return user;\n    }\n\n    // 删除：移除对应缓存条目\n    @Cache__3__(value = \"user\", key = \"#id\")\n    public void delete(long id) {\n        userMapper.deleteById(id);\n    }\n}",
+      "blanks": [
+        {
+          "candidates": ["#id", "id", "#user.id"],
+          "answer": "#id"
+        },
+        {
+          "candidates": ["Put", "Evict", "able"],
+          "answer": "Put"
+        },
+        {
+          "candidates": ["Evict", "Put", "able"],
+          "answer": "Evict"
+        }
+      ],
+      "question": "补全读/改/删三个方法的缓存注解：查询的 SpEL key 怎么写？修改与删除分别用哪个注解？",
+      "explanation": "查询 key 用 SpEL 引用参数 #id；@CachePut 执行方法并写回返回值；@CacheEvict 删除缓存条目。三注解对应读/改/删三个数据生命周期。",
+      "optionExplanations": {
+        "空1": "参数名直接以 #id 引用；不带 # 是变量声明不是 SpEL；#user.id 是另一个方法的参数。",
+        "空2": "更新场景要刷新缓存，用 Put。",
+        "空3": "删除场景要清缓存，用 Evict。"
+      },
+      "designWhy": "把 CRUD 三个阶段的注解选择变成填空肌肉记忆，外加一个 SpEL 细节（# 前缀）。",
+      "relatedTopicIds": ["sb-config-system"]
+    }
+  ]
+}

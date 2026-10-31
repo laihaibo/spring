@@ -1,0 +1,35 @@
+{
+  "id": "sb-starter",
+  "track": "springboot",
+  "level": 1,
+  "title": "Starter 机制：一句依赖背后的依赖编排",
+  "brief": "starter = 一份打包好的依赖清单 + 触发自动装配的钥匙，让「加个依赖就能用」成立。",
+  "explanation": "## starter 是什么\n\nstarter 本身**几乎不含代码**，它是一个「依赖聚合器」（POM）：引入它 = 一次性引入某项功能所需的全部依赖（且版本由官方 parent 管好，不会冲突）。\n\n```\nspring-boot-starter-web\n ├─ spring-boot-starter（核心）\n ├─ spring-web / spring-webmvc\n ├─ spring-boot-starter-tomcat（内嵌服务器）\n └─ spring-boot-starter-json（Jackson）\n```\n\n但它只是一串依赖还不够——真正让功能「开箱即用」的是配套的自动配置类：**starter 带来依赖 → 类路径出现特征类 → @ConditionalOnClass 满足 → 自动配置注册 Bean**。starter 与自动装配是钥匙和锁的关系（详见 [[sb-autoconfiguration]]）。\n\n## 命名约定\n\n- 官方：`spring-boot-starter-xxx`（如 spring-boot-starter-data-redis）\n- 第三方/自定义：`xxx-spring-boot-starter`（如 mybatis-spring-boot-starter）——把 `spring-boot-starter` 放在名字后缀，与官方区分\n\n## 自定义 starter 的标准姿势\n\n业界惯例拆两个模块：\n\n- `xxx-spring-boot-autoconfigure`：自动配置类 + 属性类 + AutoConfiguration.imports 注册文件\n- `xxx-spring-boot-starter`：聚合依赖，引 autoconfigure 模块\n\n```xml path=example-spring-boot-starter.pom\n<dependency>\n    <groupId>com.example</groupId>\n    <artifactId>example-spring-boot-autoconfigure</artifactId>\n    <version>1.0.0</version>\n</dependency>\n```\n\n使用方只需引入 starter 一个依赖，功能全部到位。\n\n## 常用官方 starter 速查\n\n| starter | 用途 |\n|---|---|\n| spring-boot-starter-web | MVC + 内嵌 Tomcat |\n| spring-boot-starter-data-jpa | JPA + Hibernate |\n| spring-boot-starter-data-redis | Redis（Lettuce） |\n| spring-boot-starter-security | 安全框架 |\n| spring-boot-starter-test | 测试全家桶 |\n| spring-boot-starter-actuator | 监控端点 |",
+  "analogy": "starter 是「菜品套装」。你去餐厅不用点「白菜、豆腐、辣椒、高汤……」十几样单点（自己罗列依赖、对版本），直接点一份「麻婆豆腐套餐」（starter），全套食材按对的比例一次性到位。而套餐为什么上来就能吃？因为后厨有对应的标准做法（自动配置类）——套餐（依赖）只是把原料备齐，做法（AutoConfiguration）才把它变成菜。自己开分店（自定义 starter）也要按命名规则挂「XX 套餐」的牌子，客人（使用方）只管点单。",
+  "codeExamples": [
+    {
+      "id": "sb-starter-web",
+      "filePath": "pom.xml",
+      "language": "xml",
+      "runnableFileName": "pom-snippet.xml",
+      "summary": "引入 web starter 一个坐标，MVC、Tomcat、JSON 全部就位——这就是依赖编排。",
+      "code": "<dependencies>\n    <!-- 一个坐标 = web + tomcat + json 全套依赖，版本由 parent 统一管理 -->\n    <dependency>\n        <groupId>org.springframework.boot</groupId>\n        <artifactId>spring-boot-starter-web</artifactId>\n    </dependency>\n\n    <!-- 引入 Redis starter，data-redis + lettuce 连接池随之就位 -->\n    <dependency>\n        <groupId>org.springframework.boot</groupId>\n        <artifactId>spring-boot-starter-data-redis</artifactId>\n    </dependency>\n</dependencies>\n\n<!-- 对比：不用 starter 时你要自己声明 5+ 个依赖并保证版本兼容 -->"
+    },
+    {
+      "id": "sb-starter-custom-pom",
+      "filePath": "greeting-spring-boot-starter/pom.xml",
+      "language": "xml",
+      "runnableFileName": "starter-pom.xml",
+      "summary": "自定义 starter 的 POM：只做依赖聚合，把 autoconfigure 模块带给使用方。",
+      "code": "<project>\n    <modelVersion>4.0.0</modelVersion>\n\n    <groupId>com.example</groupId>\n    <artifactId>greeting-spring-boot-starter</artifactId>\n    <version>1.0.0</version>\n\n    <dependencies>\n        <!-- starter 只聚合：把自动配置模块（内含 GreetingAutoConfiguration\n             与 AutoConfiguration.imports 注册文件）带给使用方 -->\n        <dependency>\n            <groupId>com.example</groupId>\n            <artifactId>greeting-spring-boot-autoconfigure</artifactId>\n            <version>1.0.0</version>\n        </dependency>\n\n        <!-- 自动配置模块依赖 spring-boot-autoconfigure 提供条件注解等基础设施 -->\n        <dependency>\n            <groupId>org.springframework.boot</groupId>\n            <artifactId>spring-boot-autoconfigure</artifactId>\n        </dependency>\n    </dependencies>\n</project>"
+    }
+  ],
+  "misconceptions": [
+    "「starter 里有实现代码」——官方 starter 基本是纯依赖聚合的 POM，真正的逻辑在同名的 autoconfigure 模块里。",
+    "「引入 starter 就完成了配置」——它只是把依赖带进类路径；没有配套的自动配置类，依赖躺在类路径里也不会注册任何 Bean。",
+    "「自定义 starter 也该叫 spring-boot-starter-xxx」——官方命名空间保留给官方；自定义用 xxx-spring-boot-starter，如 mybatis-spring-boot-starter。",
+    "「starter 解决了依赖冲突靠的是排除」——靠的是 spring-boot-dependencies parent 统一锁定版本，使用方根本不用写版本号。"
+  ],
+  "tags": ["Starter", "依赖管理", "约定"],
+  "prereq": ["sb-autoconfiguration"]
+}

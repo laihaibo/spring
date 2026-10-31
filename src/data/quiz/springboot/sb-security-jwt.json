@@ -1,0 +1,80 @@
+{
+  "topicId": "sb-security-jwt",
+  "quizzes": [
+    {
+      "id": "q-sbsec-01",
+      "topicId": "sb-security-jwt",
+      "kind": "single",
+      "question": "用户把 JWT 拿到 jwt.io 解码，看到了里面的用户名与角色。这说明什么？",
+      "options": {
+        "A": "JWT 被 Base64Url 编码，Payload 本就是明文可读的；安全性依赖签名防篡改而非加密",
+        "B": "系统被破解了，必须立刻换用加密算法",
+        "C": "说明服务端泄露了密钥",
+        "D": "JWT 的设计要求 Payload 必须 AES 加密"
+      },
+      "answer": "A",
+      "explanation": "JWT 三段中 Header 与 Payload 仅是 Base64Url 编码，人人可解；Signature 用服务器密钥保证内容不可篡改。「能看」与「能改」是两回事——认证体系靠验签信任内容。若需保密，应使用 JWE 或 HTTPS 传输 + 最小化 Payload。",
+      "optionExplanations": {
+        "A": "正确，编码 ≠ 加密是 JWT 第一安全常识。",
+        "B": "不是泄露，是 JWT 的设计如此。",
+        "C": "密钥泄露的后果是可伪造签名，与「可解码」无关。",
+        "D": "标准 JWT 不加密；JWE 才是加密扩展，非默认。"
+      },
+      "designWhy": "「编码不是加密」是 JWT 安全认知的分水岭，用真实场景（用户自己解码）引出，比背概念有效。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-sbsec-02",
+      "topicId": "sb-security-jwt",
+      "kind": "multiple",
+      "question": "关于 Spring Security 与 JWT 组合的无状态方案，正确的有哪些？（多选）",
+      "options": {
+        "A": "需要设置 SessionCreationPolicy.STATELESS，让框架不再创建 HttpSession",
+        "B": "自研的 JWT 过滤器应插在 UsernamePasswordAuthenticationFilter 之前",
+        "C": "无状态 API 若不使用 Cookie 携带凭证，可以关闭 CSRF 防护",
+        "D": "服务器为每个登录用户在内存中保存 Session，集群间自动同步"
+      },
+      "answers": ["A", "B", "C"],
+      "explanation": "无状态三板斧：STATELESS 会话策略、过滤器链前置 JWT 过滤器、关闭针对 Cookie 会话的 CSRF。D 描述的恰恰是传统有状态 Session 方案——JWT 的意义就是消灭它。",
+      "optionExplanations": {
+        "A": "正确，声明不创建会话是「无状态」的落地开关。",
+        "B": "正确，认证判断发生在授权过滤器之前。",
+        "C": "正确，CSRF 针对浏览器自动带 Cookie 的场景。",
+        "D": "有状态方案才需要；JWT 集群无需共享会话。"
+      },
+      "designWhy": "把无状态方案的三个配置动作与有状态方案的对照一次考全，区分「记得配置」与「理解为什么」。",
+      "relatedTopicIds": ["sb-application-class"]
+    },
+    {
+      "id": "q-sbsec-03",
+      "topicId": "sb-security-jwt",
+      "kind": "code-completion",
+      "codePath": "JwtService.java",
+      "language": "java",
+      "codeTemplate": "public String issue(String username, java.util.List<String> roles) {\n    Date now = new Date();\n    return Jwts.builder()\n        .__1__(username)                                  // 主题：用户名\n        .claim(\"roles\", roles)\n        .expiration(new Date(now.getTime() + expireMs))   // 必须设置：否则 Token 永不过期\n        .signWith(key)                                    // __2__ 防篡改\n        .compact();\n}\n\nprivate Claims parse(String token) {\n    // 解析即验签：签名不符或过期抛异常\n    return Jwts.parser().verifyWith(key).build().__3__(token).getPayload();\n}",
+      "blanks": [
+        {
+          "candidates": ["subject", "setUsername", "id"],
+          "answer": "subject"
+        },
+        {
+          "candidates": ["签名", "加密", "压缩"],
+          "answer": "签名"
+        },
+        {
+          "candidates": ["parseSignedClaims", "parseClaimsJws", "readToken"],
+          "answer": "parseSignedClaims"
+        }
+      ],
+      "question": "补全 JWT 签发与解析代码：设置主题的方法名？signWith 提供的是加密还是签名？解析链的方法名？",
+      "explanation": "JJWT 新 API：subject() 设置主题；signWith 提供的是签名（防篡改，不是加密）；解析用 parser().verifyWith(key).build().parseSignedClaims(token)，签名不符或 exp 过期直接抛异常。",
+      "optionExplanations": {
+        "空1": "JWT 标准声明中主题字段是 sub，对应 JJWT 的 subject()。",
+        "空2": "signWith 生成 Signature；加密是 JWE 的职责。",
+        "空3": "JJWT 0.12+ 的解析入口方法名。"
+      },
+      "designWhy": "签发与解析各留一个关键点：有效期必须设置、signWith 是签名——把两个最致命的误用（永不过期、以为加密）堵死。",
+      "relatedTopicIds": ["sb-config-system"]
+    }
+  ]
+}

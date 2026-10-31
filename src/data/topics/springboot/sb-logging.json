@@ -1,0 +1,35 @@
+{
+  "id": "sb-logging",
+  "track": "springboot",
+  "level": 1,
+  "title": "日志体系：slf4j 门面 + Logback 实现",
+  "brief": "面向接口打日志、占位符代替拼接、级别分级过滤——Spring Boot 默认零配置即可用。",
+  "explanation": "## 门面与实现\n\n- **slf4j**：日志门面（API 标准），你的代码只 import 它\n- **Logback**：实现引擎，Spring Boot 默认自带，零配置即用\n\nSpring Boot 已把桥接做好：代码里混用 commons-logging / log4j 的第三方库，输出也会统一走 Logback。\n\n```java path=OrderService.java\n// 推荐：lombok 的 @Slf4j 注解自动生成 private static final Logger log\n@Slf4j\n@Service\npublic class OrderService {\n\n    public String cancel(long orderId, long userId) {\n        log.info(\"取消订单 orderId={}, userId={}\", orderId, userId);   // 占位符，不拼字符串\n        try {\n            doCancel(orderId);\n            return \"ok\";\n        } catch (Exception e) {\n            log.error(\"取消订单失败 orderId={}\", orderId, e);          // 最后一个参数是异常，自动打全栈\n            throw e;\n        }\n    }\n}\n```\n\n不用 lombok 就手写：`private static final Logger log = LoggerFactory.getLogger(OrderService.class);`\n\n## 级别从低到高\n\n`TRACE < DEBUG < INFO < WARN < ERROR`\n\n设置某级别后，**只输出不低于它的日志**。生产一般 INFO（ERROR/WARN/INFO 可见，DEBUG 被过滤），排查问题时临时把特定包调到 DEBUG：\n\n```yaml path=application.yml\nlogging:\n  level:\n    root: info\n    com.example.order: debug       # 只对下单模块开 DEBUG\n    org.springframework.web: warn  # 框架日志降噪\n  file:\n    name: logs/app.log             # 输出到文件\n  logback:\n    rollingpolicy:\n      file-name-pattern: logs/app-%d{yyyy-MM-dd}.%i.log.gz   # 按天+大小滚动压缩\n      max-file-size: 100MB\n```\n\nActuator 的 `/actuator/loggers` 端点还能**运行期动态改级别**（无需重启）。\n\n## 三条纪律\n\n1. **占位符 `{}`**，不要字符串拼接（拼接在日志被过滤时仍会执行，白白浪费性能）\n2. **error 必须带异常对象**（放最后一个参数），不要只打 `e.getMessage()` 丢掉栈\n3. **日志说「发生了什么+关键参数」**，不打敏感信息（密码、Token、身份证）",
+  "analogy": "slf4j 与 Logback 是「插座标准 vs 电器」。你家墙上的插座（打日志的代码）遵循国家标准（slf4j 接口），插上去的电器（Logback）随便换牌子——换实现不改墙。占位符是「点菜报桌号」：服务员按需上菜（级别达标才输出），没点的菜不浪费食材（被过滤的日志不做字符串拼接）。日志级别像广播音量旋钮：整体开到 INFO，唯独下单模块的旋钮单独拧到 DEBUG（排障时），拨回零成本重启都不用（loggers 端点动态调）。",
+  "codeExamples": [
+    {
+      "id": "sb-log-usage",
+      "filePath": "src/main/java/com/example/order/OrderService.java",
+      "language": "java",
+      "runnableFileName": "OrderService.java",
+      "summary": "日志三纪律示范：占位符、error 带异常对象、关键参数齐全。",
+      "code": "package com.example.order;\n\nimport lombok.extern.slf4j.Slf4j;\nimport org.springframework.stereotype.Service;\n\n@Slf4j\n@Service\npublic class OrderService {\n\n    public String cancel(long orderId, long userId) {\n        log.info(\"取消订单 orderId={}, userId={}\", orderId, userId);\n\n        try {\n            doCancel(orderId);\n            log.debug(\"订单 {} 已进入取消流程\", orderId);\n            return \"ok\";\n        } catch (IllegalStateException busy) {\n            // 可预期的业务状态：warn 级别，不打全栈\n            log.warn(\"订单 {} 取消被拒绝: {}\", orderId, busy.getMessage());\n            throw busy;\n        } catch (Exception e) {\n            // 未知异常：error + 异常对象（最后一个参数），全栈自动输出\n            log.error(\"取消订单失败 orderId={}, userId={}\", orderId, userId, e);\n            throw e;\n        }\n    }\n\n    private void doCancel(long orderId) {\n        if (orderId <= 0) {\n            throw new IllegalArgumentException(\"非法订单号\");\n        }\n    }\n}"
+    },
+    {
+      "id": "sb-log-yaml",
+      "filePath": "src/main/resources/application.yml",
+      "language": "yaml",
+      "runnableFileName": "application-logging.yml",
+      "summary": "分级降噪 + 按天滚动压缩：root 收敛，业务包开 DEBUG，框架包压到 WARN。",
+      "code": "logging:\n  level:\n    root: info\n    com.example.order: debug\n    org.springframework.web: warn\n    org.hibernate.SQL: debug\n  file:\n    name: logs/app.log\n  logback:\n    rollingpolicy:\n      file-name-pattern: logs/app-%d{yyyy-MM-dd}.%i.log.gz\n      max-file-size: 100MB\n      max-history: 30\n\n# 运行期动态调整（无需重启）：\n# POST /actuator/loggers/com.example.order\n# {\"configuredLevel\":\"DEBUG\"}"
+    }
+  ],
+  "misconceptions": [
+    "「slf4j 和 Logback 是竞争关系」——是门面与实现：slf4j 定义 API，Logback 是实现之一（另有 Log4j2，可通过替换依赖切换）。",
+    "「字符串拼接和占位符只是写法差异」——占位符延迟构造：日志被级别过滤时拼接不会执行；高频路径上拼接是真实性能损耗。",
+    "「log.error(e.getMessage()) 够用了」——丢失异常栈等于只剩一句遗言；异常对象放最后一个参数即可输出全栈。",
+    "「日志打越多越好」——无效日志稀释关键信息且拖慢 IO；分级（INFO/WARN/ERROR 各司其职）+ 按包调节才是工程化做法。"
+  ],
+  "tags": ["日志", "slf4j", "Logback", "级别"],
+  "prereq": ["sb-application-class"]
+}

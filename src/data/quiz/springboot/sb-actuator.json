@@ -1,0 +1,72 @@
+{
+  "topicId": "sb-actuator",
+  "quizzes": [
+    {
+      "id": "q-sbac-01",
+      "topicId": "sb-actuator",
+      "kind": "single",
+      "question": "引入 spring-boot-starter-actuator 后（未做任何配置），通过 Web 能访问哪些端点？",
+      "options": {
+        "A": "全部端点（health/env/beans/metrics...）",
+        "B": "只有 /actuator/health",
+        "C": "health 与 info",
+        "D": "一个都没有，必须手动开启每个端点"
+      },
+      "answer": "B",
+      "explanation": "Web 端默认只暴露 /actuator/health（info 端点在部分版本默认关闭）。其余端点必须在 management.endpoints.web.exposure.include 中显式声明——「默认最小暴露」是刻意的安全设计。",
+      "optionExplanations": {
+        "A": "如果默认全开，actuator 的泄露事故还会多一个数量级。",
+        "B": "正确，默认最小暴露面。",
+        "C": "info 需要显式配置后才有内容，默认 Web 只开 health。",
+        "D": "health 无需配置即可访问。"
+      },
+      "designWhy": "「默认只开 health」打破「引入即全开」的想当然，同时把最小暴露面的安全意识建立起来。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-sbac-02",
+      "topicId": "sb-actuator",
+      "kind": "judge",
+      "question": "为了运维方便，生产环境建议在 management.endpoints.web.exposure.include 中配置 '*' 暴露全部端点。",
+      "answer": false,
+      "explanation": "env、beans、heapdump、threaddump 等端点会暴露配置（含密码）、内存快照与内部结构，直接暴露等于把攻击面全开。正确做法：按需 include + 独立管理端口 + 网络隔离/鉴权。",
+      "optionExplanations": {
+        "true": "历年多起真实数据泄露事件的直接原因就是 actuator 全暴露。",
+        "false": "正确：按需暴露是最小攻击面原则的体现。"
+      },
+      "designWhy": "actuator 是「便利与安全」冲突最直白的知识点，用真实事故教训换一道安全判断题。",
+      "relatedTopicIds": ["sb-security-jwt"]
+    },
+    {
+      "id": "q-sbac-03",
+      "topicId": "sb-actuator",
+      "kind": "code-completion",
+      "codePath": "SecurityConfig.java",
+      "language": "yaml",
+      "codeTemplate": "management:\n  endpoints:\n    web:\n      exposure:\n        # 只暴露运维必需的三个端点\n        include: __1__\n  endpoint:\n    health:\n      # 健康详情仅授权用户可见\n      show-details: __2__\n  server:\n    # 管理端点独立端口，与业务流量隔离\n    port: __3__",
+      "blanks": [
+        {
+          "candidates": ["health,info,metrics", "*", "health,env,heapdump"],
+          "answer": "health,info,metrics"
+        },
+        {
+          "candidates": ["when-authorized", "always", "never"],
+          "answer": "when-authorized"
+        },
+        {
+          "candidates": ["9090", "8080", "443"],
+          "answer": "9090"
+        }
+      ],
+      "question": "补全一份生产级 actuator 安全配置：暴露哪些端点？详情给谁看？管理端口怎么选？",
+      "explanation": "按需暴露 health/info/metrics；show-details 用 when-authorized 避免拓扑泄露；管理端点用独立端口（如 9090）配合网络层只允许内网访问，与业务 8080 分离。",
+      "optionExplanations": {
+        "空1": "最小暴露集；含 env/heapdump 的组合会泄露敏感数据。",
+        "空2": "always 会把内部组件状态暴露给未授权访问者。",
+        "空3": "独立于业务端口 8080；443 是业务 HTTPS 端口。"
+      },
+      "designWhy": "把「最小暴露 + 授权可见 + 端口隔离」三道防线放进同一份 YAML，填完即得一份可上生产的模板。",
+      "relatedTopicIds": ["sb-config-system"]
+    }
+  ]
+}

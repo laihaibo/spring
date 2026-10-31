@@ -1,0 +1,35 @@
+{
+  "id": "sb-profiles",
+  "track": "springboot",
+  "level": 1,
+  "title": "Profile 多环境：dev / test / prod 一键切换",
+  "brief": "同一份代码、不同环境配置：application-{profile}.yml 的隔离与激活方式。",
+  "explanation": "## 基本用法\n\n把各环境差异抽到独立文件：`application-{profile}.yml`，公共配置留在 `application.yml`。\n\n```yaml path=application.yml\napp:\n  feature-x: true      # 公共配置，所有环境共享\nspring:\n  profiles:\n    active: dev        # 默认激活 dev（生产环境通常用环境变量覆盖）\n```\n\n```yaml path=application-dev.yml\nserver:\n  port: 8080\nspring:\n  datasource:\n    url: jdbc:mysql://localhost:3306/devdb\n```\n\n```yaml path=application-prod.yml\nserver:\n  port: 80\nspring:\n  datasource:\n    url: jdbc:mysql://prod-host:3306/proddb\n```\n\n## 激活方式（优先级从高到低）\n\n1. 命令行：`--spring.profiles.active=prod`\n2. 环境变量：`SPRING_PROFILES_ACTIVE=prod`（**生产环境标准姿势**，镜像不打重生）\n3. application.yml 里的 `spring.profiles.active`\n\n多个 profile 用逗号：`dev,local`。\n\n## 代码级控制\n\n```java path=ProfileBeans.java\n@Configuration\npublic class ProfileBeans {\n\n    @Bean\n    @Profile(\"dev\")\n    public MailSender mockMailSender() {\n        return to -> System.out.println(\"[MOCK] 发往 \" + to);\n    }\n\n    @Bean\n    @Profile(\"prod\")\n    public MailSender realMailSender() {\n        return to -> System.out.println(\"[SMTP] 发往 \" + to);\n    }\n}\n```\n\n`@Profile` 也可以标注在 `@Component` 类或 `@Configuration` 类上；`@Profile(\"!prod\")` 表示「非 prod 生效」。\n\n## 配置分组\n\n`spring.profiles.group` 可以把一组 profile 捆绑激活，如 `group: { production: \"proddb,prodmq\" }`，激活 production 即同时激活两者。",
+  "analogy": "Profile 是「同一份员工手册的不同版本页」。公司制度（application.yml）人人通用；新员工版（dev）写着「工位在 A 区、用测试账号」，正式版（prod）写着「工位随机、用实名权限」。入职时 HR 在系统里选一个版本生效（spring.profiles.active）——实习生用 dev 版，正式员工用 prod 版，转正那天只改一个字段，不用重印整本手册（不用改代码重新打包）。@Profile 注解则是「这条规定只适用于某类员工」。",
+  "codeExamples": [
+    {
+      "id": "sb-profile-files",
+      "filePath": "src/main/resources/application.yml",
+      "language": "yaml",
+      "runnableFileName": "application.yml",
+      "summary": "三文件结构：公共 + dev + prod；本地默认 dev，生产用环境变量覆盖激活。",
+      "code": "# application.yml —— 公共配置 + 默认激活\nspring:\n  application:\n    name: demo-app\n  profiles:\n    active: dev\n\napp:\n  feature-x: true\n\n# ---------------- application-dev.yml ----------------\n# server:\n#   port: 8080\n# spring:\n#   datasource:\n#     url: jdbc:mysql://localhost:3306/devdb\n#     username: dev\n\n# ---------------- application-prod.yml ----------------\n# server:\n#   port: 80\n# spring:\n#   datasource:\n#     url: jdbc:mysql://prod-host:3306/proddb\n#     username: app\n\n# 生产环境激活方式（不打镜像重生）：\n#   环境变量 SPRING_PROFILES_ACTIVE=prod\n#   或 java -jar app.jar --spring.profiles.active=prod"
+    },
+    {
+      "id": "sb-profile-bean",
+      "filePath": "src/main/java/com/example/profile/ProfileBeans.java",
+      "language": "java",
+      "runnableFileName": "ProfileBeans.java",
+      "summary": "@Profile 按 Bean 级别隔离：dev 用 mock 实现，prod 用真实实现，接口不变。",
+      "code": "package com.example.profile;\n\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\nimport org.springframework.context.annotation.Profile;\n\ninterface MailSender {\n    void send(String to);\n}\n\n@Configuration\npublic class ProfileBeans {\n\n    @Bean\n    @Profile(\"dev\")\n    public MailSender mockMailSender() {\n        return to -> System.out.println(\"[MOCK] 发往 \" + to);\n    }\n\n    @Bean\n    @Profile(\"prod\")\n    public MailSender realMailSender() {\n        return to -> System.out.println(\"[SMTP] 发往 \" + to);\n    }\n}\n\n// 业务代码面向 MailSender 接口注入，完全感知不到环境差异\n// 注意：若 active=dev 时只有 mockMailSender 注册，注入 List 或单个均正常"
+    }
+  ],
+  "misconceptions": [
+    "「切环境要改代码重新打包」——环境差异全部外置到 profile 文件与环境变量，同一 jar 通过激活不同 profile 运行于任何环境。",
+    "「application-prod.yml 会整个覆盖 application.yml」——两者合并：公共配置来自主文件，同名 key 才被 profile 文件覆盖。",
+    "「生产环境在 yml 里写死 active: prod 很安全」——应使用环境变量激活；把 prod 写进打进镜像的文件里，容易在本地误连生产库。",
+    "「@Profile 只能标在方法上」——它同样可用于 @Component/@Configuration 类级别，整类按环境生效。"
+  ],
+  "tags": ["Profile", "多环境", "配置"],
+  "prereq": ["sb-config-system"]
+}

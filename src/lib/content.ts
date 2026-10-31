@@ -29,6 +29,29 @@ import jdkCglibQuiz from "@/data/quiz/spring/jdk-cglib-proxy.json";
 import aopAdviceQuiz from "@/data/quiz/spring/aop-advice-types.json";
 import pointcutQuiz from "@/data/quiz/spring/pointcut-expressions.json";
 
+/* ---- Spring Boot（第二批） ---- */
+import sbApplicationClass from "@/data/topics/springboot/sb-application-class.json";
+import sbAutoconfiguration from "@/data/topics/springboot/sb-autoconfiguration.json";
+import sbStarter from "@/data/topics/springboot/sb-starter.json";
+import sbConfigSystem from "@/data/topics/springboot/sb-config-system.json";
+import sbProfiles from "@/data/topics/springboot/sb-profiles.json";
+import sbActuator from "@/data/topics/springboot/sb-actuator.json";
+import sbSecurityJwt from "@/data/topics/springboot/sb-security-jwt.json";
+import sbRedisCache from "@/data/topics/springboot/sb-redis-cache.json";
+import sbExceptionHandling from "@/data/topics/springboot/sb-exception-handling.json";
+import sbLogging from "@/data/topics/springboot/sb-logging.json";
+
+import sbApplicationClassQuiz from "@/data/quiz/springboot/sb-application-class.json";
+import sbAutoconfigurationQuiz from "@/data/quiz/springboot/sb-autoconfiguration.json";
+import sbStarterQuiz from "@/data/quiz/springboot/sb-starter.json";
+import sbConfigSystemQuiz from "@/data/quiz/springboot/sb-config-system.json";
+import sbProfilesQuiz from "@/data/quiz/springboot/sb-profiles.json";
+import sbActuatorQuiz from "@/data/quiz/springboot/sb-actuator.json";
+import sbSecurityJwtQuiz from "@/data/quiz/springboot/sb-security-jwt.json";
+import sbRedisCacheQuiz from "@/data/quiz/springboot/sb-redis-cache.json";
+import sbExceptionHandlingQuiz from "@/data/quiz/springboot/sb-exception-handling.json";
+import sbLoggingQuiz from "@/data/quiz/springboot/sb-logging.json";
+
 export const TRACKS: Track[] = ["spring", "springboot", "ruoyi"];
 
 export const TRACK_META: Record<
@@ -74,7 +97,7 @@ function quizzes(raw: unknown): Quiz[] {
   return (raw as QuizFile).quizzes;
 }
 
-const SPRING_TOPICS: Topic[] = [
+export const SPRING_TOPICS: Topic[] = [
   { ...topic(iocContainerBasics), quiz: quizzes(iocQuiz) },
   { ...topic(beanRegistration), quiz: quizzes(beanRegistrationQuiz) },
   { ...topic(diThreeWays), quiz: quizzes(diQuiz) },
@@ -87,7 +110,20 @@ const SPRING_TOPICS: Topic[] = [
   { ...topic(pointcutExpressions), quiz: quizzes(pointcutQuiz) },
 ];
 
-export const ALL_TOPICS: Topic[] = [...SPRING_TOPICS];
+export const SPRINGBOOT_TOPICS: Topic[] = [
+  { ...topic(sbApplicationClass), quiz: quizzes(sbApplicationClassQuiz) },
+  { ...topic(sbAutoconfiguration), quiz: quizzes(sbAutoconfigurationQuiz) },
+  { ...topic(sbStarter), quiz: quizzes(sbStarterQuiz) },
+  { ...topic(sbConfigSystem), quiz: quizzes(sbConfigSystemQuiz) },
+  { ...topic(sbProfiles), quiz: quizzes(sbProfilesQuiz) },
+  { ...topic(sbActuator), quiz: quizzes(sbActuatorQuiz) },
+  { ...topic(sbSecurityJwt), quiz: quizzes(sbSecurityJwtQuiz) },
+  { ...topic(sbRedisCache), quiz: quizzes(sbRedisCacheQuiz) },
+  { ...topic(sbExceptionHandling), quiz: quizzes(sbExceptionHandlingQuiz) },
+  { ...topic(sbLogging), quiz: quizzes(sbLoggingQuiz) },
+];
+
+export const ALL_TOPICS: Topic[] = [...SPRING_TOPICS, ...SPRINGBOOT_TOPICS];
 
 const TOPIC_MAP = new Map(ALL_TOPICS.map((t) => [t.id, t]));
 

@@ -1,0 +1,74 @@
+{
+  "topicId": "sb-logging",
+  "quizzes": [
+    {
+      "id": "q-sblg-01",
+      "topicId": "sb-logging",
+      "kind": "single",
+      "question": "root 级别为 info 时，代码里 log.debug(\"...\") 这一行会发生什么？",
+      "options": {
+        "A": "照样执行字符串拼接，但不输出",
+        "B": "级别被过滤：不输出日志，且参数拼接/装箱等预备工作也不执行",
+        "C": "抛出异常：debug 低于 root 级别",
+        "D": "自动升级为 info 输出"
+      },
+      "answer": "B",
+      "explanation": "占位符方式 log.debug(\"{}\", obj) 在级别过滤时不通过，内部的参数装箱、toString 等准备动作不会执行——这正是占位符相对字符串拼接的性能优势：log.debug(\"...\" + obj) 无论输出与否都会先做拼接。",
+      "optionExplanations": {
+        "A": "拼接写法才会这样做，占位符写法不会。",
+        "B": "正确，延迟构造是占位符的核心价值。",
+        "C": "级别过滤是静默的，不报错。",
+        "D": "级别只会向下过滤，不会升级。"
+      },
+      "designWhy": "「占位符不只是写法」是日志性能常识里最反直觉的一点，用被过滤的 debug 行为直接验证。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-sblg-02",
+      "topicId": "sb-logging",
+      "kind": "multiple",
+      "question": "Spring Boot 的默认日志体系，正确的有哪些？（多选）",
+      "options": {
+        "A": "业务代码面向 slf4j 门面编程，默认实现是 Logback",
+        "B": "logging.level.com.example.order=debug 可以只对该包开启 DEBUG",
+        "C": "通过 /actuator/loggers 端点可以在不重启的情况下动态调整日志级别",
+        "D": "Spring Boot 强制全项目使用 Log4j2，Logback 只能手动引入"
+      },
+      "answers": ["A", "B", "C"],
+      "explanation": "默认门面 slf4j + 实现 Logback（零配置即用），按包分级、Actuator 动态调整都是标准能力。D 颠倒了事实：Logback 才是默认，Log4j2 需要主动替换依赖。",
+      "optionExplanations": {
+        "A": "正确，门面/实现分离。",
+        "B": "正确，级别可精确到包甚至类。",
+        "C": "正确，配合 actuator 使用。",
+        "D": "说反了，默认就是 Logback。"
+      },
+      "designWhy": "把「门面/实现、按包分级、动态调整」三个日常最常用的能力一次考全，并纠正常见的默认引擎误解。",
+      "relatedTopicIds": ["sb-actuator"]
+    },
+    {
+      "id": "q-sblg-03",
+      "topicId": "sb-logging",
+      "kind": "code-reading",
+      "codePath": "LogLevelDemo.java",
+      "language": "java",
+      "code": "// logging.level:\n//   root: warn\n//   com.example.order: info\n\n@Service\npublic class LogLevelDemo {\n\n    private static final Logger log = LoggerFactory.getLogger(LogLevelDemo.class);\n    // LogLevelDemo 所在包：com.example.order\n\n    public void run() {\n        log.trace(\"trace-1\");\n        log.debug(\"debug-2\");\n        log.info(\"info-3\");\n        log.warn(\"warn-4\");\n        log.error(\"error-5\");\n    }\n}",
+      "question": "run() 执行后实际输出哪几行？",
+      "options": {
+        "A": "全部五行",
+        "B": "info-3、warn-4、error-5（该包级别 info，只输出不低于 info 的）",
+        "C": "warn-4、error-5（root 是 warn）",
+        "D": "error-5（取最严格的 root）"
+      },
+      "answer": "B",
+      "explanation": "级别解析按精确度就近匹配：com.example.order 的 info 优先于 root 的 warn，所以该包内 INFO 及以上输出：info-3、warn-4、error-5。trace/debug 被过滤。",
+      "optionExplanations": {
+        "A": "trace/debug 低于包级别 info，被过滤。",
+        "B": "正确，就近的包级配置生效。",
+        "C": "root 是兜底，包级更精确的配置覆盖它。",
+        "D": "不是取最严格，是取最精确。"
+      },
+      "designWhy": "「就近精确优先于 root 兜底」是配置日志级别时的判定规则，五连输出题把规则变成可推导的结果。",
+      "relatedTopicIds": ["sb-config-system"]
+    }
+  ]
+}

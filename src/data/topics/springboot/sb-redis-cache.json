@@ -1,0 +1,36 @@
+{
+  "id": "sb-redis-cache",
+  "track": "springboot",
+  "level": 1,
+  "title": "Redis 缓存：Spring Cache 抽象与 @Cacheable",
+  "brief": "注解即可缓存：@Cacheable 查前拦、@CachePut 更新、@CacheEvict 清理，底层换 Redis 不改业务码。",
+  "explanation": "## Spring Cache 抽象\n\nSpring 提供统一的缓存注解，底层实现（Redis/Caffeine/本地 Map）可替换——业务代码只面向注解：\n\n- **@Cacheable**：先查缓存，命中直接返回；未命中执行方法并写入（**读多写少**）\n- **@CachePut**：总是执行方法并刷新缓存（写后同步）\n- **@CacheEvict**：删除缓存（删除/修改数据时）\n\n```java path=ProductService.java\n@Service\npublic class ProductService {\n\n    @Cacheable(value = \"product\", key = \"#id\")\n    public Product getById(long id) {\n        // 只有缓存未命中才会真正执行\n        return productMapper.selectById(id);\n    }\n\n    @CachePut(value = \"product\", key = \"#product.id\")\n    public Product update(Product product) {\n        productMapper.update(product);\n        return product;   // 返回值会成为新缓存\n    }\n\n    @CacheEvict(value = \"product\", key = \"#id\")\n    public void delete(long id) {\n        productMapper.deleteById(id);\n    }\n}\n```\n\n## 接上 Redis\n\n引入 `spring-boot-starter-data-redis` + `@EnableCaching`，声明 RedisCacheManager：\n\n```java path=CacheConfig.java\n@Configuration\n@EnableCaching\npublic class CacheConfig {\n\n    @Bean\n    public RedisCacheManager cacheManager(RedisConnectionFactory factory) {\n        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()\n            .entryTtl(Duration.ofMinutes(30))                  // 统一过期时间\n            .serializeValuesWith(SerializationPair.fromSerializer(\n                new GenericJackson2JsonRedisSerializer()));    // JSON 序列化，可读可跨服务\n        return RedisCacheManager.builder(factory)\n            .cacheDefaults(config)\n            .build();\n    }\n}\n```\n\n## 绕开注解的姿势：RedisTemplate\n\n需要精细控制（复杂数据结构、管道、过期策略）时直接用 `RedisTemplate<String, Object>`；注解覆盖不了的场景才下场手写。\n\n## 两个必知风险（第三批 RuoYi 实战会再用到）\n\n- **缓存穿透**：查询不存在的 id，每次都打到 DB → 缓存空值或布隆过滤器\n- **缓存雪崩**：大量 key 同时过期 → TTL 加随机抖动",
+  "analogy": "Spring Cache 注解像餐厅的「备菜制度」。@Cacheable 是「先看备菜柜，有现成的直接端，没有才下锅，出锅顺手存一份」；@CachePut 是「重做一份并替换柜里旧的」；@CacheEvict 是「这道菜下架，柜里的也扔掉」。备菜柜可以换成冰柜（Redis）或台面（Caffeine），制度本身不变——服务员（业务代码）完全不用关心柜子是什么牌子。JSON 序列化则是给菜贴上标准标签，哪个分店（服务）都能认。"
+,
+  "codeExamples": [
+    {
+      "id": "sb-cache-service",
+      "filePath": "src/main/java/com/example/product/ProductService.java",
+      "language": "java",
+      "runnableFileName": "ProductService.java",
+      "summary": "三注解组合的标准用法：读走缓存、改后刷新、删后清理，业务方法保持纯净。",
+      "code": "package com.example.product;\n\nimport org.springframework.cache.annotation.CacheEvict;\nimport org.springframework.cache.annotation.CachePut;\nimport org.springframework.cache.annotation.Cacheable;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class ProductService {\n\n    private final ProductMapper productMapper;\n\n    public ProductService(ProductMapper productMapper) {\n        this.productMapper = productMapper;\n    }\n\n    @Cacheable(value = \"product\", key = \"#id\", unless = \"#result == null\")\n    public Product getById(long id) {\n        System.out.println(\"[DB] 查询商品 \" + id);   // 缓存命中时不会打印\n        return productMapper.selectById(id);\n    }\n\n    @CachePut(value = \"product\", key = \"#product.id\")\n    public Product update(Product product) {\n        productMapper.update(product);\n        return product;\n    }\n\n    @CacheEvict(value = \"product\", key = \"#id\")\n    public void delete(long id) {\n        productMapper.deleteById(id);\n    }\n}\n\nclass Product {\n    long id;\n    String name;\n}\n\ninterface ProductMapper {\n    Product selectById(long id);\n    void update(Product product);\n    void deleteById(long id);\n}"
+    },
+    {
+      "id": "sb-cache-config",
+      "filePath": "src/main/java/com/example/cache/CacheConfig.java",
+      "language": "java",
+      "runnableFileName": "CacheConfig.java",
+      "summary": "开启缓存并接入 Redis：统一 TTL + JSON 序列化，注解的底层从本地切到 Redis 只改这里。",
+      "code": "package com.example.cache;\n\nimport java.time.Duration;\nimport org.springframework.cache.annotation.EnableCaching;\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\nimport org.springframework.data.redis.cache.RedisCacheConfiguration;\nimport org.springframework.data.redis.cache.RedisCacheManager;\nimport org.springframework.data.redis.connection.RedisConnectionFactory;\nimport org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;\nimport org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;\n\n@Configuration\n@EnableCaching\npublic class CacheConfig {\n\n    @Bean\n    public RedisCacheManager cacheManager(RedisConnectionFactory factory) {\n        RedisCacheConfiguration defaults = RedisCacheConfiguration.defaultCacheConfig()\n            .entryTtl(Duration.ofMinutes(30))\n            .serializeValuesWith(\n                SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()));\n\n        return RedisCacheManager.builder(factory)\n            .cacheDefaults(defaults)\n            // 按缓存名差异化 TTL：配置类数据放 2 小时\n            .withCacheConfiguration(\"product\", defaults.entryTtl(Duration.ofMinutes(30)))\n            .withCacheConfiguration(\"config\", defaults.entryTtl(Duration.ofHours(2)))\n            .build();\n    }\n}"
+    }
+  ],
+  "misconceptions": [
+    "「@Cacheable 每次都会执行方法」——命中缓存时方法体根本不执行；想在方法内记录执行日志会误判命中率。",
+    "「加了 @Cacheable 就万事大吉」——更新数据若忘记 @CacheEvict/@CachePut，缓存与 DB 不一致是必然事故。",
+    "「@Cacheable 的 key 不写就是按方法名」——默认 key 由全部参数组成（SimpleKey）；同方法不同参数互不干扰，全参对象要正确实现 equals/hashCode。",
+    "「自研系统用 RedisTemplate 比 Spring Cache 注解更高级」——两者是不同层次：注解面向方法级缓存治理，Template 面向数据结构操作；按场景选而非按高低。"
+  ],
+  "tags": ["Redis", "缓存", "Spring Cache"],
+  "prereq": ["sb-application-class", "di-three-ways"]
+}

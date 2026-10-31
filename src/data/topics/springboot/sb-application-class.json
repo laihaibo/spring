@@ -1,0 +1,35 @@
+{
+  "id": "sb-application-class",
+  "track": "springboot",
+  "level": 1,
+  "title": "@SpringBootApplication 剖析：三合一注解与启动流程",
+  "brief": "启动类上那一个注解，其实是三个注解的打包：开启自动配置、组件扫描与 Bean 注册。",
+  "explanation": "## 三合一注解\n\n`@SpringBootApplication` 等价于同时声明三个注解：\n\n- **@SpringBootConfiguration**：本质是 `@Configuration` 的语义化包装——启动类本身就是一个配置类，可以直接在里面写 `@Bean`\n- **@EnableAutoConfiguration**：打开自动装配开关（Spring Boot 的灵魂，详见 [[sb-autoconfiguration]]）\n- **@ComponentScan**：组件扫描，**默认只扫启动类所在包及子包**——这就是「启动类要放在根包」这条铁律的来源\n\n```java path=DemoApplication.java\n@SpringBootApplication\npublic class DemoApplication {\n    public static void main(String[] args) {\n        SpringApplication.run(DemoApplication.class, args);\n    }\n}\n```\n\n如果启动类放错了包，`@ComponentScan` 扫不到你的 `@Service`/`@Controller`，启动不报错但所有注入全部失败——这是新手第一大坑。\n\n## SpringApplication.run 的启动流程（主干六步）\n\n1. 创建 `SpringApplication` 实例（推断应用类型：Servlet/Reactive）\n2. 从 `spring.factories`/`AutoConfiguration.imports` 加载初始化器与监听器\n3. **启动内嵌 Web 服务器**（Tomcat 默认，可换 Jetty/Undertow）\n4. 准备 Environment（加载 application.yml 等配置）\n5. 创建并刷新 `ApplicationContext`（这里执行组件扫描 + 自动装配 + Bean 创建）\n6. 发布 ApplicationReadyEvent，应用就绪\n\n```java path=CustomizeStartup.java\n@SpringBootApplication\npublic class CustomizeStartup {\n    public static void main(String[] args) {\n        // run() 返回的就是 ApplicationContext，可以继续操作容器\n        var ctx = SpringApplication.run(CustomizeStartup.class, args);\n        System.out.println(\"容器里共有 \" + ctx.getBeanDefinitionCount() + \" 个 Bean\");\n    }\n}\n```\n\n## 与 Spring 裸框架的关系\n\nSpring Boot 没有发明新的 IoC/AOP——它只是把「配置 web.xml、数据源、内嵌服务器」这些样板工作自动化了。学好了 Spring 核心（第一批内容），Spring Boot 只是在学「自动化开关在哪里」。",
+  "analogy": "把启动类比成「开业筹备」。@SpringBootApplication 是一张三合一的营业执照：注册公司（@SpringBootConfiguration，你的类本身就是配置中心）、申请自动办证通道（@EnableAutoConfiguration，很多证照不用你跑腿，系统自动配齐）、划定经营范围（@ComponentScan，只管这条街的门店）。run() 就是开业剪彩：装电表水表（内嵌 Tomcat）、盘点资产（刷新容器）、挂横幅宣布开业（就绪事件）。店开在哪个街区很重要——执照只管启动类所在的这条街（根包）及以内，开到街对面（包外）就没人管了。",
+  "codeExamples": [
+    {
+      "id": "sb-app-main",
+      "filePath": "src/main/java/com/example/DemoApplication.java",
+      "language": "java",
+      "runnableFileName": "DemoApplication.java",
+      "summary": "标准启动类：放在根包 com.example 下，保证默认扫描覆盖所有业务子包。",
+      "code": "package com.example;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\nimport org.springframework.web.bind.annotation.GetMapping;\nimport org.springframework.web.bind.annotation.RestController;\n\n@RestController\nclass PingController {\n\n    @GetMapping(\"/ping\")\n    public String ping() {\n        return \"pong\";\n    }\n}\n\n@SpringBootApplication\npublic class DemoApplication {\n\n    public static void main(String[] args) {\n        SpringApplication.run(DemoApplication.class, args);\n    }\n}\n// PingController 在 com.example 的子包中，默认扫描自然覆盖"
+    },
+    {
+      "id": "sb-app-scan",
+      "filePath": "src/main/java/com/example/DemoApplication.java",
+      "language": "java",
+      "runnableFileName": "DemoApplication.java",
+      "summary": "当类必须放错包时的补救：显式指定 scanBasePackages（等价于扩大扫描范围）。",
+      "code": "package com.example.boot;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\n\n// 注意：此类在 com.example.boot 包，而业务组件在 com.example.biz 包。\n// 默认扫描只覆盖 com.example.boot 及其子包，扫不到 biz —— 必须显式指定。\n@SpringBootApplication(scanBasePackages = \"com.example\")\npublic class DemoApplication {\n\n    public static void main(String[] args) {\n        SpringApplication.run(DemoApplication.class, args);\n    }\n}\n// 更推荐的做法：把启动类移回 com.example 根包，而不是扩大扫描范围"
+    }
+  ],
+  "misconceptions": [
+    "「@SpringBootApplication 是一个新注解、有独立魔法」——它只是三个注解的组合元注解，拆开逐个写效果完全一样。",
+    "「启动类放哪里都行」——默认扫描以启动类所在包为根，放错包会导致扫描不到组件（启动不报错、注入全 null）。",
+    "「SpringApplication.run 之前就能用容器里的 Bean」——容器在 run() 内部才刷新完成，之前只有主线程可用。",
+    "「Spring Boot 内嵌 Tomcat 是另一个进程」——内嵌服务器以库的形式运行在同一 JVM 里，随应用启动而启动。"
+  ],
+  "tags": ["Spring Boot", "启动类", "ComponentScan"],
+  "prereq": ["ioc-container-basics"]
+}

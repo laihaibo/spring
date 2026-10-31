@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 import { LiquidGlassCard } from "@/components/glass/liquid-glass-card";
 import { TopicDetail } from "@/components/learning/topic-detail";
-import { getTopicById, getTopicsByTrack, LEVEL_LABEL } from "@/lib/content";
+import { ALL_TOPICS, getTopicById, LEVEL_LABEL } from "@/lib/content";
 import type { Track } from "@/lib/types";
 
 interface PageProps {
@@ -11,7 +10,7 @@ interface PageProps {
 }
 
 export function generateStaticParams() {
-  return getTopicsByTrack("spring").map((t) => ({ track: t.track, id: t.id }));
+  return ALL_TOPICS.map((t) => ({ track: t.track, id: t.id }));
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -34,14 +33,6 @@ export default async function TopicPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 md:max-w-4xl md:py-8">
-      <Link
-        href={`/learn/${topic.track}`}
-        className="mb-4 inline-flex min-h-11 items-center gap-1 text-[13.5px] text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" />
-        返回 {TRACK_LABEL(topic.track)}
-      </Link>
-
       <header className="mb-5">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
@@ -56,8 +47,7 @@ export default async function TopicPage({ params }: PageProps) {
             </span>
           ))}
         </div>
-        <h1 className="text-xl font-semibold leading-snug">{topic.title}</h1>
-        <p className="mt-1.5 text-[13.5px] text-muted-foreground">{topic.brief}</p>
+        <p className="text-[13.5px] leading-relaxed text-muted-foreground">{topic.brief}</p>
 
         {prereqTopics.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
@@ -82,8 +72,4 @@ export default async function TopicPage({ params }: PageProps) {
       </LiquidGlassCard>
     </main>
   );
-}
-
-function TRACK_LABEL(track: Track): string {
-  return track === "spring" ? "Spring 核心" : track === "springboot" ? "Spring Boot" : "RuoYi";
 }

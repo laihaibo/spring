@@ -1,0 +1,66 @@
+{
+  "topicId": "sb-starter",
+  "quizzes": [
+    {
+      "id": "q-sbst-01",
+      "topicId": "sb-starter",
+      "kind": "single",
+      "question": "引入 spring-boot-starter-data-redis 后立刻能用 Redis，直接原因是？",
+      "options": {
+        "A": "starter 里写了创建 RedisTemplate 的 Java 代码",
+        "B": "starter 带来的依赖使类路径出现特征类，触发 RedisAutoConfiguration 注册 Bean",
+        "C": "Spring Boot 启动时扫描了所有 jar 包里的类并全部注册",
+        "D": "JVM 通过 SPI 自动加载 Redis 驱动"
+      },
+      "answer": "B",
+      "explanation": "starter 只是依赖聚合；真正起作用的是随之进入类路径的特征类满足了 RedisAutoConfiguration 的 @ConditionalOnClass 条件，从而注册 RedisTemplate 等 Bean。「依赖进门 → 条件满足 → 配置生效」三步缺一不可。",
+      "optionExplanations": {
+        "A": "starter 几乎是纯 POM，不含 Java 代码。",
+        "B": "正确，starter 与自动配置是钥匙与锁的关系。",
+        "C": "Spring Boot 从不盲目注册 jar 里的类，一切经条件过滤。",
+        "D": "Java SPI 与 Spring 的自动装配是两套机制，此处无关。"
+      },
+      "designWhy": "「加依赖就能用」的因果链是最容易被黑盒化的部分，本题逼你把 starter（钥匙）与 AutoConfiguration（锁）分开表述。",
+      "relatedTopicIds": ["sb-autoconfiguration"]
+    },
+    {
+      "id": "q-sbst-02",
+      "topicId": "sb-starter",
+      "kind": "judge",
+      "question": "公司要封装自己的 starter，按命名规范应命名为 spring-boot-starter-greeting。",
+      "answer": false,
+      "explanation": "spring-boot-starter- 前缀是官方保留命名。自定义/第三方用 xxx-spring-boot-starter 后缀式命名（如 mybatis-spring-boot-starter），一眼区分来源。",
+      "optionExplanations": {
+        "true": "这会与官方 starter 混淆，违反社区命名约定。",
+        "false": "正确命名是 greeting-spring-boot-starter。"
+      },
+      "designWhy": "命名约定是 starter 生态「一眼识别」的基础，也是代码评审里真实会出现的问题。",
+      "relatedTopicIds": []
+    },
+    {
+      "id": "q-sbst-03",
+      "topicId": "sb-starter",
+      "kind": "code-reading",
+      "codePath": "dependency-snippets.xml",
+      "language": "xml",
+      "code": "<!-- 写法 A -->\n<dependency>\n    <groupId>org.springframework.boot</groupId>\n    <artifactId>spring-boot-starter-web</artifactId>\n</dependency>\n\n<!-- 写法 B -->\n<dependency>\n    <groupId>org.springframework</groupId>\n    <artifactId>spring-webmvc</artifactId>\n    <version>6.2.1</version>\n</dependency>\n<dependency>\n    <groupId>org.apache.tomcat.embed</groupId>\n    <artifactId>tomcat-embed-core</artifactId>\n    <version>10.1.34</version>\n</dependency>\n<!-- ...还需要 Jackson、validation、日志等若干依赖 -->",
+      "question": "写法 A 与写法 B 都能让 Web 功能跑起来，为什么工程实践强烈推荐写法 A？",
+      "options": {
+        "A": "写法 A 更短，只是少打几个字",
+        "B": "写法 A 由官方统一编排依赖集合并锁定版本，升级与兼容性由官方维护，避免手工对版本出错",
+        "C": "写法 B 是过时语法，新版本 Spring Boot 已不支持",
+        "D": "写法 A 会自动生成业务代码"
+      },
+      "answer": "B",
+      "explanation": "starter 的价值是「依赖编排 + 版本仲裁」：集合内依赖经过官方兼容性验证，版本由 spring-boot-dependencies 统一管理。写法 B 要自己保证 5+ 个依赖的版本互相兼容，每次升级都是一次风险。写法 B 完全合法，只是没人愿意维护。",
+      "optionExplanations": {
+        "A": "简洁是表象，版本仲裁才是本质。",
+        "B": "正确，这正是「约定优于配置」在依赖管理上的体现。",
+        "C": "写法 B 语法完全合法，只是维护成本高。",
+        "D": "starter 不生成任何业务代码。"
+      },
+      "designWhy": "用两段真实 POM 对比，让「starter = 依赖编排」从口号变成可感知的维护成本差异。",
+      "relatedTopicIds": ["sb-autoconfiguration"]
+    }
+  ]
+}

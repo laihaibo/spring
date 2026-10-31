@@ -1,0 +1,66 @@
+{
+  "topicId": "sb-profiles",
+  "quizzes": [
+    {
+      "id": "q-sbpf-01",
+      "topicId": "sb-profiles",
+      "kind": "single",
+      "question": "生产环境激活 prod profile 的最佳方式是？",
+      "options": {
+        "A": "把 application.yml 里的 active 改成 prod 后重新打包",
+        "B": "application-prod.yml 里再写一行 active: prod",
+        "C": "通过环境变量 SPRING_PROFILES_ACTIVE=prod 或启动参数 --spring.profiles.active=prod",
+        "D": "在代码里 System.setProperty(\"spring.profiles.active\", \"prod\") 写死"
+      },
+      "answer": "C",
+      "explanation": "环境变量/启动参数在优先级链顶端且无需重新打包——同一镜像可运行于任何环境，这是容器化部署的标准姿势。A 改文件重打包违背「一份构建」原则；D 把环境写死进代码。",
+      "optionExplanations": {
+        "A": "改文件重打包意味着 dev/prod 是两个工件，无法保证「测过的就是上线的」。",
+        "B": "profile 文件里写 active 是循环引用式写法，且同样需要不同文件。",
+        "C": "正确，运行期注入，不动构建产物。",
+        "D": "硬编码进代码失去切环境的灵活性。"
+      },
+      "designWhy": "「一份构建、多环境运行」是 CI/CD 的基本假设，本题把这个原则落到 profile 激活方式的选择上。",
+      "relatedTopicIds": ["sb-config-system"]
+    },
+    {
+      "id": "q-sbpf-02",
+      "topicId": "sb-profiles",
+      "kind": "judge",
+      "question": "激活 dev profile 后，application.yml 中的公共配置仍然生效，只有同名 key 被 application-dev.yml 覆盖。",
+      "answer": true,
+      "explanation": "profile 文件与主文件是「合并」关系而非「替换」：application.yml 提供公共默认值，application-dev.yml 只覆盖它显式声明的同名 key。这也是公共配置应该放主文件的原因。",
+      "optionExplanations": {
+        "true": "正确，否则每个 profile 文件都要重复全部公共配置。",
+        "false": "如果整文件替换，改一个端口就得把数据源、日志全抄一遍。"
+      },
+      "designWhy": "合并语义决定公共配置的摆放策略，是组织多环境配置文件的第一判断。",
+      "relatedTopicIds": ["sb-config-system"]
+    },
+    {
+      "id": "q-sbpf-03",
+      "topicId": "sb-profiles",
+      "kind": "code-reading",
+      "codePath": "PaymentGateway.java",
+      "language": "java",
+      "code": "@Service\n@Profile(\"!prod\")\npublic class FakePaymentGateway implements PaymentGateway {\n    public String pay(long amount) {\n        return \"FAKE-\" + amount;\n    }\n}\n\n@Service\n@Profile(\"prod\")\npublic class RealPaymentGateway implements PaymentGateway {\n    public String pay(long amount) {\n        return \"REAL-\" + amount;\n    }\n}\n\n@Service\npublic class CheckoutService {\n    private final PaymentGateway gateway;\n\n    public CheckoutService(PaymentGateway gateway) {\n        this.gateway = gateway;\n    }\n\n    public String checkout(long amount) {\n        return gateway.pay(amount);\n    }\n}",
+      "question": "active=dev 时启动应用，CheckoutService 注入的是哪个实现？如果两个 @Profile 都删掉会怎样？",
+      "options": {
+        "A": "注入 RealPaymentGateway；删掉后仍注入其中一个",
+        "B": "注入 FakePaymentGateway（!prod 在 dev 生效）；删掉后容器里有两个 PaymentGateway 实现，按类型注入报 NoUniqueBeanDefinitionException",
+        "C": "启动失败：没有任何实现匹配 dev",
+        "D": "注入 FakePaymentGateway；删掉后自动注入 RealPaymentGateway"
+      },
+      "answer": "B",
+      "explanation": "@Profile(\"!prod\") 表示「非 prod 环境生效」，dev 满足，Fake 实现注册；Real 因 @Profile(\"prod\") 不匹配而缺席，注入无冲突。删除两个注解后两个实现同时存在于容器，CheckoutService 按单类型注入找不到唯一候选，启动即报 NoUniqueBeanDefinitionException。",
+      "optionExplanations": {
+        "A": "active=dev 时 prod profile 未激活，Real 不会注册。",
+        "B": "正确，@Profile 的否定义与多候选冲突两个知识点各占一半。",
+        "C": "Fake 的 !prod 在 dev 下匹配，至少有一个实现。",
+        "D": "容器不会自动替你挑选同类型多实现。"
+      },
+      "designWhy": "把 @Profile 否定义、Bean 冲突、构造器注入三个知识点串在一段真实代码里，检验的是组合理解而非孤立记忆。",
+      "relatedTopicIds": ["autowired-vs-resource", "bean-registration"]
+    }
+  ]
+}

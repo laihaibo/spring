@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { ArrowRight, RefreshCcw, Target } from "lucide-react";
 import { LiquidGlassCard } from "@/components/glass/liquid-glass-card";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { ImportExportButtons } from "@/components/learning/import-export-buttons";
 import { ProgressRing } from "@/components/learning/progress-ring";
 import { useLearningStore } from "@/hooks/use-learning-store";
 import { useMounted } from "@/hooks/use-mounted";
-import { getTopicById, getTopicsByTrack, TRACKS, TRACK_META } from "@/lib/content";
+import { ALL_TOPICS, getTopicById, getTopicsByTrack, TRACKS, TRACK_META } from "@/lib/content";
 import {
   dueMistakeIds,
   isMastered,
@@ -18,7 +16,7 @@ import {
 } from "@/lib/learning-store";
 import type { Track } from "@/lib/types";
 
-/** 学习总览仪表盘：三条 track 进度环 + 复习队列 + 数据管理 */
+/** 学习总览仪表盘：三条 track 进度环 + 复习队列 + 继续学习 */
 export function DashboardView() {
   const { data } = useLearningStore();
   const mounted = useMounted();
@@ -31,23 +29,14 @@ export function DashboardView() {
     : [];
 
   const nextTopic = mounted
-    ? getTopicsByTrack("spring").find((t) => !isMastered(data.records[t.id]))
+    ? ALL_TOPICS.find((t) => !isMastered(data.records[t.id]))
     : undefined;
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">学习总览</h1>
-          <p className="mt-1 text-[13.5px] text-muted-foreground">
-            学 → 讲 → 练 → 记 → 复习，费曼学习法闭环
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <ImportExportButtons compact />
-        </div>
-      </header>
+      <p className="text-[13.5px] text-muted-foreground">
+        学 → 讲 → 练 → 记 → 复习，费曼学习法闭环
+      </p>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {TRACKS.map((track, i) => (
@@ -103,7 +92,7 @@ export function DashboardView() {
               </>
             ) : (
               <p className="mt-2 text-[13.5px] text-muted-foreground">
-                第一批 10 个知识点已全部完成，等待第二批内容上线。
+                当前批次内容已全部掌握，去路线图看看下一步学什么。
               </p>
             )}
           </div>

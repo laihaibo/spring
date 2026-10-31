@@ -15,9 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { NAV_GROUPS } from "@/components/layout/nav-config";
-import { cn } from "@/lib/utils";
 
 /** 桌面端左侧玻璃导航 */
 export function AppSidebar() {
@@ -33,7 +31,6 @@ export function AppSidebar() {
           <span className="truncate text-[15px] font-semibold">Spring Learn</span>
           <span className="truncate text-xs text-muted-foreground">费曼学习法 · 习题带练</span>
         </div>
-        <ThemeToggle />
       </SidebarHeader>
       <SidebarContent className="gap-4 px-2">
         {NAV_GROUPS.map((group) => (
@@ -64,7 +61,7 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
       <SidebarFooter className="px-4 py-3 text-[11px] text-muted-foreground">
-        <span className={cn("nums")}>第一批 · Spring 核心 10 讲</span>
+        <span className="nums">已上线 2 批 · 20 讲 · 60 题</span>
       </SidebarFooter>
     </Sidebar>
   );
