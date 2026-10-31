@@ -31,11 +31,19 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # 仅自动启用 Pages（Source: GitHub Actions），不做配置注入。
+      # 不要加 static_site_generator: next —— configure-pages 不识别 next.config.ts，
+      # 会额外生成 next.config.js，且 Next 优先加载 .js 而非 .ts，导致导出配置失效。
       - uses: actions/configure-pages@v4
         with:
-          static_site_generator: next
+          enablement: true
 
       - run: pnpm build
+
+      - name: Verify static export output
+        run: |
+          test -d out || { echo "::error::out/ 目录未生成，构建配置有误"; exit 1; }
+          ls out | head -5
 
       - uses: actions/upload-pages-artifact@v3
         with:
