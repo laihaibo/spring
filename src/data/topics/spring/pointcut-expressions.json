@@ -13,7 +13,7 @@
       "language": "java",
       "runnableFileName": "ApiLogAspect.java",
       "summary": "按包名匹配的完整示例：controller 层所有公共方法入参出参统一记录。",
-      "code": "package com.example.aspect;\n\nimport java.util.Arrays;\nimport org.aspectj.lang.JoinPoint;\nimport org.aspectj.lang.annotation.AfterReturning;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Before;\nimport org.aspectj.lang.annotation.Pointcut;\nimport org.springframework.stereotype.Component;\n\n@Aspect\n@Component\npublic class ApiLogAspect {\n\n    /** controller 包及子包下，所有类的所有公共方法，参数不限 */\n    @Pointcut(\"execution(public * com.example.controller..*.*(..))\")\n    public void apiLayer() {\n    }\n\n    @Before(\"apiLayer()\")\n    public void logIn(JoinPoint jp) {\n        System.out.println(\"-> \" + jp.getSignature().toShortString()\n            + \" 入参: \" + Arrays.toString(jp.getArgs()));\n    }\n\n    @AfterReturning(pointcut = \"apiLayer()\", returning = \"result\")\n    public void logOut(JoinPoint jp, Object result) {\n        System.out.println(\"<- \" + jp.getSignature().toShortString()\n            + \" 出参: \" + result);\n    }\n}"
+      "code": "package com.example.aspect;\n\nimport java.util.Arrays;\nimport org.aspectj.lang.JoinPoint;\nimport org.aspectj.lang.annotation.AfterReturning;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Before;\nimport org.aspectj.lang.annotation.Pointcut;\nimport org.springframework.stereotype.Component;\n\n// ══ 按包名匹配：controller 层所有公共方法统一记录出入参 ══\n@Aspect\n@Component\npublic class ApiLogAspect {\n\n    /**\n     * 切点逐段：public = 仅公共方法；* = 任意返回类型；\n     * controller..* = controller 包及子包任意类；.*(..) = 任意方法任意参数\n     */\n    @Pointcut(\"execution(public * com.example.controller..*.*(..))\")\n    public void apiLayer() {\n    }\n\n    // 前置通知：方法执行前记录签名与入参\n    @Before(\"apiLayer()\")\n    public void logIn(JoinPoint jp) {\n        System.out.println(\"-> \" + jp.getSignature().toShortString()\n            + \" 入参: \" + Arrays.toString(jp.getArgs()));\n    }\n\n    // 后置通知：returning = \"result\" 把返回值绑定进参数\n    @AfterReturning(pointcut = \"apiLayer()\", returning = \"result\")\n    public void logOut(JoinPoint jp, Object result) {\n        System.out.println(\"<- \" + jp.getSignature().toShortString()\n            + \" 出参: \" + result);\n    }\n}"
     },
     {
       "id": "pointcut-annotation",
@@ -30,6 +30,13 @@
     "「表达式写错只是不生效，不会报错」——拼错指示符/语法在启动创建代理时就抛 IllegalArgumentException，早失败早发现。",
     "「@annotation 匹配的是类上的注解」——它匹配方法级注解；类级注解要用 @within 或 @target。"
   ],
-  "tags": ["AOP", "切点表达式", "execution", "annotation"],
-  "prereq": ["aop-concepts"]
+  "tags": [
+    "AOP",
+    "切点表达式",
+    "execution",
+    "annotation"
+  ],
+  "prereq": [
+    "aop-concepts"
+  ]
 }

@@ -13,7 +13,7 @@
       "language": "java",
       "runnableFileName": "DemoApplication.java",
       "summary": "标准启动类：放在根包 com.example 下，保证默认扫描覆盖所有业务子包。",
-      "code": "package com.example;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\nimport org.springframework.web.bind.annotation.GetMapping;\nimport org.springframework.web.bind.annotation.RestController;\n\n@RestController\nclass PingController {\n\n    @GetMapping(\"/ping\")\n    public String ping() {\n        return \"pong\";\n    }\n}\n\n@SpringBootApplication\npublic class DemoApplication {\n\n    public static void main(String[] args) {\n        SpringApplication.run(DemoApplication.class, args);\n    }\n}\n// PingController 在 com.example 的子包中，默认扫描自然覆盖"
+      "code": "package com.example;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\nimport org.springframework.web.bind.annotation.GetMapping;\nimport org.springframework.web.bind.annotation.RestController;\n\n// 一个普通的 Controller：@RestController = @Controller + @ResponseBody（返回 JSON）\n@RestController\nclass PingController {\n\n    @GetMapping(\"/ping\")\n    public String ping() {\n        return \"pong\";\n    }\n}\n\n// ══ 启动类：三合一注解 + main 方法，整个应用的入口 ══\n// 它必须放在根包（com.example）——默认扫描只覆盖启动类所在包及子包\n@SpringBootApplication\npublic class DemoApplication {\n\n    public static void main(String[] args) {\n        // run() 内部完成：内嵌 Tomcat 启动 → 加载配置 → 刷新容器 → 就绪事件\n        SpringApplication.run(DemoApplication.class, args);\n    }\n}\n// PingController 在 com.example 的子包中，默认扫描自然覆盖"
     },
     {
       "id": "sb-app-scan",
@@ -30,6 +30,12 @@
     "「SpringApplication.run 之前就能用容器里的 Bean」——容器在 run() 内部才刷新完成，之前只有主线程可用。",
     "「Spring Boot 内嵌 Tomcat 是另一个进程」——内嵌服务器以库的形式运行在同一 JVM 里，随应用启动而启动。"
   ],
-  "tags": ["Spring Boot", "启动类", "ComponentScan"],
-  "prereq": ["ioc-container-basics"]
+  "tags": [
+    "Spring Boot",
+    "启动类",
+    "ComponentScan"
+  ],
+  "prereq": [
+    "ioc-container-basics"
+  ]
 }

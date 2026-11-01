@@ -21,7 +21,7 @@
       "language": "java",
       "runnableFileName": "MailConfig.java",
       "summary": "@ConfigurationProperties 的两种生效方式之一：@EnableConfigurationProperties（官方推荐）。",
-      "code": "package com.example.mail;\n\nimport org.springframework.boot.context.properties.EnableConfigurationProperties;\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\n\n@Configuration\n@EnableConfigurationProperties(MailProperties.class)\npublic class MailConfig {\n\n    @Bean\n    public MailService mailService(MailProperties properties) {\n        // 属性对象本身就是一个 Bean，构造器注入即可使用\n        return new MailService(properties.getHost(), properties.getPort());\n    }\n}\n\nclass MailService {\n    private final String host;\n    private final int port;\n\n    MailService(String host, int port) {\n        this.host = host;\n        this.port = port;\n    }\n\n    void send(String to) {\n        System.out.println(\"connect \" + host + \":\" + port + \" -> \" + to);\n    }\n}"
+      "code": "package com.example.mail;\n\nimport org.springframework.boot.context.properties.EnableConfigurationProperties;\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\n\n// ══ @ConfigurationProperties 的两种生效方式之一：@EnableConfigurationProperties ══\n// （官方自动配置类统一用这种，而不是给属性类加 @Component）\n@Configuration\n@EnableConfigurationProperties(MailProperties.class)\npublic class MailConfig {\n\n    @Bean\n    public MailService mailService(MailProperties properties) {\n        // 属性对象本身就是一个 Bean：构造器注入即可使用（yml 的值已绑定完毕）\n        return new MailService(properties.getHost(), properties.getPort());\n    }\n}\n\nclass MailService {\n    private final String host;\n    private final int port;\n\n    MailService(String host, int port) {\n        this.host = host;\n        this.port = port;\n    }\n\n    void send(String to) {\n        // 发送前打印配置值，验证绑定成功\n        System.out.println(\"connect \" + host + \":\" + port + \" -> \" + to);\n    }\n}"
     }
   ],
   "misconceptions": [
@@ -30,6 +30,12 @@
     "「命令行参数优先级低于配置文件」——恰恰相反，--server.port=9090 覆盖一切文件里的同名配置。",
     "「松散绑定对 @Value 同样生效」——@Value 严格按占位符原文匹配，松散绑定是 @ConfigurationProperties 的专属能力。"
   ],
-  "tags": ["配置", "ConfigurationProperties", "优先级"],
-  "prereq": ["sb-application-class"]
+  "tags": [
+    "配置",
+    "ConfigurationProperties",
+    "优先级"
+  ],
+  "prereq": [
+    "sb-application-class"
+  ]
 }

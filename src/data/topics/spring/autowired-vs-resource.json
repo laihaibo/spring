@@ -13,7 +13,7 @@
       "language": "java",
       "runnableFileName": "CheckoutService.java",
       "summary": "同类型多实现的经典冲突场景：@Qualifier 精确点名，不依赖字段名。",
-      "code": "package com.example.pay;\n\nimport org.springframework.beans.factory.annotation.Qualifier;\nimport org.springframework.stereotype.Service;\n\ninterface PaymentService {\n    String channel();\n}\n\n@Service(\"alipay\")\nclass AlipayService implements PaymentService {\n    public String channel() { return \"支付宝\"; }\n}\n\n@Service(\"wechat\")\nclass WechatPayService implements PaymentService {\n    public String channel() { return \"微信支付\"; }\n}\n\n@Service\npublic class CheckoutService {\n\n    private final PaymentService payment;\n\n    public CheckoutService(@Qualifier(\"alipay\") PaymentService payment) {\n        this.payment = payment;\n    }\n\n    public String pay() {\n        return \"已通过 \" + payment.channel() + \" 完成支付\";\n    }\n}"
+      "code": "package com.example.pay;\n\nimport org.springframework.beans.factory.annotation.Qualifier;\nimport org.springframework.stereotype.Service;\n\n// 同一接口的两个实现 —— byType 注入必然冲突的场景\ninterface PaymentService {\n    String channel();\n}\n\n@Service(\"alipay\")   // 显式指定 Bean 名（默认是 alipayService）\nclass AlipayService implements PaymentService {\n    public String channel() { return \"支付宝\"; }\n}\n\n@Service(\"wechat\")\nclass WechatPayService implements PaymentService {\n    public String channel() { return \"微信支付\"; }\n}\n\n@Service\npublic class CheckoutService {\n\n    private final PaymentService payment;\n\n    // 冲突解法：@Qualifier 精确点名 —— 不依赖字段名，改名不翻车\n    public CheckoutService(@Qualifier(\"alipay\") PaymentService payment) {\n        this.payment = payment;\n    }\n\n    public String pay() {\n        return \"已通过 \" + payment.channel() + \" 完成支付\";\n    }\n}"
     },
     {
       "id": "autowired-resource",
@@ -21,7 +21,7 @@
       "language": "java",
       "runnableFileName": "ReportService.java",
       "summary": "@Resource：先按名字匹配，找不到再按类型兜底；不能用在构造器上。",
-      "code": "package com.example.pay;\n\nimport jakarta.annotation.Resource;\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class ReportService {\n\n    /** 字段名 wechat 恰好是 Bean 名 → 按名字直接命中 */\n    @Resource\n    private PaymentService wechat;\n\n    /** 字段名 arbitrary 无对应 Bean → 退化按类型找，仍冲突则报错 */\n    @Resource\n    private PaymentService arbitrary;\n\n    void print() {\n        System.out.println(wechat.channel() + \" / \" + arbitrary.channel());\n    }\n}"
+      "code": "package com.example.pay;\n\nimport jakarta.annotation.Resource;   // 注意出身：JSR-250 标准注解，非 Spring 自有\nimport org.springframework.stereotype.Service;\n\n// @Resource 的匹配规则演示：先按名字（字段名）找，找不到再按类型兜底\n@Service\npublic class ReportService {\n\n    // 字段名 wechat 恰好是某个 Bean 的名字 → 按名字直接命中\n    @Resource\n    private PaymentService wechat;\n\n    // 字段名 arbitrary 没有对应 Bean → 退化按类型找；\n    // 若类型仍有多个候选 → NoUniqueBeanDefinitionException，启动即报错\n    @Resource\n    private PaymentService arbitrary;\n\n    void print() {\n        System.out.println(wechat.channel() + \" / \" + arbitrary.channel());\n    }\n}"
     }
   ],
   "misconceptions": [
@@ -30,6 +30,13 @@
     "「@Resource 可以标在构造器上」——JSR-250 不允许，构造器注入只能配 @Autowired。",
     "「@Primary 和 @Qualifier 作用一样」——@Primary 声明「默认首选」（全局兜底），@Qualifier 精确点名（局部指定），冲突时 @Qualifier 优先。"
   ],
-  "tags": ["Autowired", "Resource", "Qualifier", "注入冲突"],
-  "prereq": ["di-three-ways"]
+  "tags": [
+    "Autowired",
+    "Resource",
+    "Qualifier",
+    "注入冲突"
+  ],
+  "prereq": [
+    "di-three-ways"
+  ]
 }

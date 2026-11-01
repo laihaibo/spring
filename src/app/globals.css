@@ -370,6 +370,23 @@
   user-select: none;
 }
 
+/* 换行模式：长行折行显示（移动端默认，免横向拖拽） */
+[data-slot="code-block-content"][data-wrap="true"] .cb-code,
+[data-slot="code-block-content"][data-wrap="true"] .cb-pre code {
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-width: 0;
+}
+
+[data-slot="code-block-content"][data-wrap="true"] .cb-pre code > .line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+[data-wrap="true"] .cb-line {
+  padding-right: 2.75rem; /* 给右下角换行切换按钮留出空间 */
+}
+
 /* shiki 行元素通用块化 */
 .cb-pre code > .line {
   display: block;

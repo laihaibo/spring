@@ -13,7 +13,7 @@
       "language": "java",
       "runnableFileName": "JdkProxyDemo.java",
       "summary": "纯 JDK 动态代理（无需 Spring）：20 行看清「代理拦截调用」的本质，可直接运行。",
-      "code": "package com.example.proxy;\n\nimport java.lang.reflect.Proxy;\n\npublic class JdkProxyDemo {\n\n    interface PayService {\n        String pay(long amount);\n    }\n\n    static class AlipayService implements PayService {\n        public String pay(long amount) {\n            return \"支付宝支付 \" + amount + \" 元\";\n        }\n    }\n\n    public static void main(String[] args) {\n        PayService target = new AlipayService();\n\n        PayService proxy = (PayService) Proxy.newProxyInstance(\n            target.getClass().getClassLoader(),\n            new Class<?>[] { PayService.class },\n            (p, method, mArgs) -> {\n                System.out.println(\"[前置] 记录支付请求\");\n                Object result = method.invoke(target, mArgs);\n                System.out.println(\"[后置] 记录支付结果\");\n                return result;\n            });\n\n        System.out.println(proxy.pay(100));\n        System.out.println(\"代理类型: \" + proxy.getClass().getName());\n        // 代理类型形如 com.sun.proxy.$Proxy0，与 AlipayService 是两个对象\n    }\n}"
+      "code": "package com.example.proxy;\n\nimport java.lang.reflect.Proxy;\n\npublic class JdkProxyDemo {\n\n    // 接口：JDK 动态代理的前提 —— 目标必须实现接口\n    interface PayService {\n        String pay(long amount);\n    }\n\n    // 目标对象：真正的业务逻辑\n    static class AlipayService implements PayService {\n        public String pay(long amount) {\n            return \"支付宝支付 \" + amount + \" 元\";\n        }\n    }\n\n    public static void main(String[] args) {\n        PayService target = new AlipayService();\n\n        // 生成代理：与目标实现同一组接口，调用会被转发到第三个参数（InvocationHandler）\n        PayService proxy = (PayService) Proxy.newProxyInstance(\n            target.getClass().getClassLoader(),\n            new Class<?>[] { PayService.class },\n            (p, method, mArgs) -> {\n                System.out.println(\"[前置] 记录支付请求\");   // 拦截逻辑：方法执行前\n                Object result = method.invoke(target, mArgs); // 反射调用目标方法\n                System.out.println(\"[后置] 记录支付结果\");   // 拦截逻辑：方法执行后\n                return result;\n            });\n\n        System.out.println(proxy.pay(100));\n        System.out.println(\"代理类型: \" + proxy.getClass().getName());\n        // 代理类型形如 com.sun.proxy.$Proxy0 —— 与 AlipayService 是两个对象\n    }\n}"
     },
     {
       "id": "proxy-cglib-boundary",
@@ -21,7 +21,7 @@
       "language": "java",
       "runnableFileName": "CglibBoundaryDemo.java",
       "summary": "CGLIB 的能力边界：public 方法能被增强，final/private 拦不住——与 Spring AOP 行为完全一致。",
-      "code": "package com.example.proxy;\n\nimport org.springframework.cglib.proxy.Enhancer;\nimport org.springframework.cglib.proxy.MethodInterceptor;\n\npublic class CglibBoundaryDemo {\n\n    static class Greeter {\n        public String hello(String name) {\n            return \"你好, \" + name;\n        }\n\n        public final String bye(String name) {\n            return \"再见, \" + name;\n        }\n\n        private String secret() {\n            return \"内部密语\";\n        }\n    }\n\n    public static void main(String[] args) {\n        Enhancer enhancer = new Enhancer();\n        enhancer.setSuperclass(Greeter.class);\n        enhancer.setCallback((MethodInterceptor) (obj, method, mArgs, proxy) -> {\n            System.out.println(\"[拦截到] \" + method.getName());\n            return proxy.invokeSuper(obj, mArgs);\n        });\n\n        Greeter greeter = (Greeter) enhancer.create();\n        System.out.println(greeter.hello(\"张三\"));\n        System.out.println(greeter.bye(\"张三\"));\n\n        greeter.secret();\n        // 输出：只有 hello 被拦截。\n        // bye 是 final 无法被覆写（CGLIB 直接跳过），secret 是 private 根本不可见。\n    }\n}"
+      "code": "package com.example.proxy;\n\nimport org.springframework.cglib.proxy.Enhancer;\nimport org.springframework.cglib.proxy.MethodInterceptor;\n\npublic class CglibBoundaryDemo {\n\n    // 目标类：故意混入 final / private 方法，验证 CGLIB 的能力边界\n    static class Greeter {\n        public String hello(String name) {\n            return \"你好, \" + name;\n        }\n\n        public final String bye(String name) {   // final：子类无法覆写 → 拦截不到\n            return \"再见, \" + name;\n        }\n\n        private String secret() {                // private：对子类不可见 → 拦截不到\n            return \"内部密语\";\n        }\n    }\n\n    public static void main(String[] args) {\n        // Enhancer = CGLIB 的核心：为目标类生成子类\n        Enhancer enhancer = new Enhancer();\n        enhancer.setSuperclass(Greeter.class);   // 子类化的关键：设父类\n        enhancer.setCallback((MethodInterceptor) (obj, method, mArgs, proxy) -> {\n            System.out.println(\"[拦截到] \" + method.getName());\n            return proxy.invokeSuper(obj, mArgs);  // 调用父类（原始）方法\n        });\n\n        Greeter greeter = (Greeter) enhancer.create();\n        System.out.println(greeter.hello(\"张三\"));   // ✅ 被拦截\n        System.out.println(greeter.bye(\"张三\"));     // ❌ final 直接跳过\n\n        greeter.secret();\n        // 输出：只有 hello 被拦截 —— final/private 根本进不了拦截器\n    }\n}"
     }
   ],
   "misconceptions": [
@@ -30,6 +30,13 @@
     "「自调用失效是 Spring 的 bug」——这是代理机制的本质边界：this 指向原始对象，调用没有经过代理，不是失效而是从未路过。",
     "「代理对象和目标对象是同一个实例」——容器里放的是代理，代理内部才持有目标引用；打印 getClass() 一目了然。"
   ],
-  "tags": ["代理", "CGLIB", "JDK Proxy", "AOP 原理"],
-  "prereq": ["aop-concepts"]
+  "tags": [
+    "代理",
+    "CGLIB",
+    "JDK Proxy",
+    "AOP 原理"
+  ],
+  "prereq": [
+    "aop-concepts"
+  ]
 }

@@ -21,7 +21,7 @@
       "language": "java",
       "runnableFileName": "ExternalApiHealthIndicator.java",
       "summary": "自定义健康检查：第三方依赖是否可达纳入 /health 聚合，K8s 探针自动感知。",
-      "code": "package com.example.health;\n\nimport java.net.HttpURLConnection;\nimport java.net.URI;\nimport org.springframework.boot.actuate.health.AbstractHealthIndicator;\nimport org.springframework.boot.actuate.health.Health;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class ExternalApiHealthIndicator extends AbstractHealthIndicator {\n\n    @Override\n    protected void doHealthCheck(Health.Builder builder) throws Exception {\n        HttpURLConnection conn = (HttpURLConnection) URI\n            .create(\"https://api.example.com/ping\")\n            .toURL()\n            .openConnection();\n        conn.setConnectTimeout(1000);\n        conn.setReadTimeout(1000);\n\n        int status = conn.getResponseCode();\n        if (status == 200) {\n            builder.up().withDetail(\"external-api\", \"reachable\");\n        } else {\n            builder.down().withDetail(\"external-api\", \"status \" + status);\n        }\n    }\n}\n// 访问 /actuator/health 时，该项与 db/redis 等自动聚合"
+      "code": "package com.example.health;\n\nimport java.net.HttpURLConnection;\nimport java.net.URI;\nimport org.springframework.boot.actuate.health.AbstractHealthIndicator;\nimport org.springframework.boot.actuate.health.Health;\nimport org.springframework.stereotype.Component;\n\n// ══ 自定义健康检查：把「第三方依赖是否可达」纳入 /actuator/health 聚合 ══\n// 继承 AbstractHealthIndicator（而非实现接口），异常会自动转为 DOWN 状态\n@Component\npublic class ExternalApiHealthIndicator extends AbstractHealthIndicator {\n\n    @Override\n    protected void doHealthCheck(Health.Builder builder) throws Exception {\n        // 用最轻量的 HttpURLConnection 探测第三方 API（1 秒超时）\n        HttpURLConnection conn = (HttpURLConnection) URI\n            .create(\"https://api.example.com/ping\")\n            .toURL()\n            .openConnection();\n        conn.setConnectTimeout(1000);\n        conn.setReadTimeout(1000);\n\n        int status = conn.getResponseCode();\n        if (status == 200) {\n            builder.up().withDetail(\"external-api\", \"reachable\");   // 聚合为 UP\n        } else {\n            builder.down().withDetail(\"external-api\", \"status \" + status);  // 聚合为 DOWN\n        }\n    }\n}\n// K8s 探针打 /actuator/health 时，本项与 db/redis 等自动聚合"
     }
   ],
   "misconceptions": [
@@ -30,6 +30,12 @@
     "「actuator 端点放在业务同端口无所谓」——env/heapdump 等端点泄露配置与内存数据，生产应独立管理端口并加网络隔离。",
     "「show-details: always 很方便」——健康详情会暴露内部组件拓扑与地址，生产环境用 when-authorized 或 never。"
   ],
-  "tags": ["Actuator", "监控", "健康检查"],
-  "prereq": ["sb-application-class"]
+  "tags": [
+    "Actuator",
+    "监控",
+    "健康检查"
+  ],
+  "prereq": [
+    "sb-application-class"
+  ]
 }

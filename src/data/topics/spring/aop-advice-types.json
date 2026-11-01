@@ -13,7 +13,7 @@
       "language": "java",
       "runnableFileName": "OrderAspect.java",
       "summary": "五种通知各打一行日志，运行后输出顺序与讲解中的顺序图完全对应，跑一遍就记住。",
-      "code": "package com.example.aspect;\n\nimport org.aspectj.lang.JoinPoint;\nimport org.aspectj.lang.ProceedingJoinPoint;\nimport org.aspectj.lang.annotation.After;\nimport org.aspectj.lang.annotation.AfterReturning;\nimport org.aspectj.lang.annotation.AfterThrowing;\nimport org.aspectj.lang.annotation.Around;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Before;\nimport org.aspectj.lang.annotation.Pointcut;\nimport org.springframework.stereotype.Component;\n\n@Aspect\n@Component\npublic class OrderAspect {\n\n    @Pointcut(\"execution(* com.example.service.GreetService.*(..))\")\n    public void greet() {\n    }\n\n    @Around(\"greet()\")\n    public Object around(ProceedingJoinPoint pjp) throws Throwable {\n        System.out.println(\"1 Around: 前段\");\n        try {\n            Object result = pjp.proceed();\n            System.out.println(\"4 Around: 后段, 返回值=\" + result);\n            return result;\n        } finally {\n            System.out.println(\"4.5 Around: finally\");\n        }\n    }\n\n    @Before(\"greet()\")\n    public void before(JoinPoint jp) {\n        System.out.println(\"2 Before: \" + jp.getSignature().getName());\n    }\n\n    @After(\"greet()\")\n    public void after() {\n        System.out.println(\"5 After: 无论成败都执行\");\n    }\n\n    @AfterReturning(\"greet()\")\n    public void afterReturning() {\n        System.out.println(\"6 AfterReturning: 正常返回后\");\n    }\n\n    @AfterThrowing(\"greet()\")\n    public void afterThrowing() {\n        System.out.println(\"6': AfterThrowing: 抛异常后\");\n    }\n}\n// 正常执行输出顺序：1 → 2 → 目标方法 → 4 → 4.5 → 5 → 6"
+      "code": "package com.example.aspect;\n\nimport org.aspectj.lang.JoinPoint;\nimport org.aspectj.lang.ProceedingJoinPoint;\nimport org.aspectj.lang.annotation.After;\nimport org.aspectj.lang.annotation.AfterReturning;\nimport org.aspectj.lang.annotation.AfterThrowing;\nimport org.aspectj.lang.annotation.Around;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Before;\nimport org.aspectj.lang.annotation.Pointcut;\nimport org.springframework.stereotype.Component;\n\n// ══ 五种通知各打一行日志：跑一遍就记住执行顺序 ══\n@Aspect\n@Component\npublic class OrderAspect {\n\n    // 切点：GreetService 的所有方法\n    @Pointcut(\"execution(* com.example.service.GreetService.*(..))\")\n    public void greet() {\n    }\n\n    // @Around 全程包裹：proceed() 前是最早，proceed() 后在 @After 之前\n    @Around(\"greet()\")\n    public Object around(ProceedingJoinPoint pjp) throws Throwable {\n        System.out.println(\"1 Around: 前段\");\n        try {\n            Object result = pjp.proceed();          // ← 目标方法在这里执行\n            System.out.println(\"4 Around: 后段, 返回值=\" + result);\n            return result;\n        } finally {\n            System.out.println(\"4.5 Around: finally\");\n        }\n    }\n\n    // @Before：紧随 Around 前段之后\n    @Before(\"greet()\")\n    public void before(JoinPoint jp) {\n        System.out.println(\"2 Before: \" + jp.getSignature().getName());\n    }\n\n    // @After：finally 语义，无论成败都执行（先于 AfterReturning！）\n    @After(\"greet()\")\n    public void after() {\n        System.out.println(\"5 After: 无论成败都执行\");\n    }\n\n    // @AfterReturning：正常返回后（晚于 @After）\n    @AfterReturning(\"greet()\")\n    public void afterReturning() {\n        System.out.println(\"6 AfterReturning: 正常返回后\");\n    }\n\n    // @AfterThrowing：抛异常后才会出现（正常流程里它缺席）\n    @AfterThrowing(\"greet()\")\n    public void afterThrowing() {\n        System.out.println(\"6': AfterThrowing: 抛异常后\");\n    }\n}\n// 正常执行输出顺序：1 → 2 → 目标方法 → 4 → 4.5 → 5 → 6"
     },
     {
       "id": "advice-around-control",
@@ -30,6 +30,14 @@
     "「AfterThrowing 能把异常处理掉让流程继续」——它只是观察者；不重新抛出时异常照样向上传播，吞异常改写流程只有 @Around 做得到。",
     "「多个切面的执行顺序是随机的」——由 @Order/Ordered 决定：值小的在外层，围绕目标形成洋葱结构。"
   ],
-  "tags": ["AOP", "通知", "执行顺序", "Around"],
-  "prereq": ["aop-concepts", "jdk-cglib-proxy"]
+  "tags": [
+    "AOP",
+    "通知",
+    "执行顺序",
+    "Around"
+  ],
+  "prereq": [
+    "aop-concepts",
+    "jdk-cglib-proxy"
+  ]
 }

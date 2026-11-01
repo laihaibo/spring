@@ -14,7 +14,7 @@
       "runnableFileName": "UserRealm.java",
       "summary": "Shiro 版认证与授权的落点：两个回调方法承担「你是谁」「你能干什么」。",
       "sourceNote": "RuoYi 单体版 · ruoyi-framework/.../shiro/realm/UserRealm.java（教学简化）",
-      "code": "package com.ruoyi.framework.shiro.realm;\n\nimport com.ruoyi.common.core.domain.entity.SysUser;\nimport com.ruoyi.system.service.ISysUserService;\nimport org.apache.shiro.authc.*;\nimport org.apache.shiro.authz.AuthorizationInfo;\nimport org.apache.shiro.authz.SimpleAuthorizationInfo;\nimport org.apache.shiro.realm.AuthorizingRealm;\nimport org.apache.shiro.subject.PrincipalCollection;\nimport java.util.Set;\n\npublic class UserRealm extends AuthorizingRealm {\n\n    private final ISysUserService userService;\n\n    public UserRealm(ISysUserService userService) {\n        this.userService = userService;\n    }\n\n    /** 认证：登录回调。查用户后交给 CredentialsMatcher 比对密码 */\n    @Override\n    protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) {\n        String username = (String) token.getPrincipal();\n        SysUser user = userService.selectUserByUserName(username);\n        if (user == null) {\n            throw new UnknownAccountException(\"用户不存在\");\n        }\n        return new SimpleAuthenticationInfo(user, user.getPassword(), getName());\n    }\n\n    /** 授权：收集该用户的角色键与权限字符串集合 */\n    @Override\n    protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {\n        SysUser user = (SysUser) principals.getPrimaryPrincipal();\n        SimpleAuthorizationInfo info = new SimpleAuthorizationInfo();\n        info.setRoles(user.getRoles() == null ? Set.of() : keysOf(user));\n        info.setStringPermissions(user.getPermissions());\n        return info;\n    }\n\n    private Set<String> keysOf(SysUser user) {\n        return user.getRoles().stream().map(r -> r.getRoleKey()).collect(java.util.stream.Collectors.toSet());\n    }\n}"
+      "code": "package com.ruoyi.framework.shiro.realm;\n\nimport com.ruoyi.common.core.domain.entity.SysUser;\nimport com.ruoyi.system.service.ISysUserService;\nimport org.apache.shiro.authc.*;                     // AuthenticationToken / SimpleAuthenticationInfo 等\nimport org.apache.shiro.authz.AuthorizationInfo;\nimport org.apache.shiro.authz.SimpleAuthorizationInfo;\nimport org.apache.shiro.realm.AuthorizingRealm;      // Realm 基类：认证+授权两个回调\nimport org.apache.shiro.subject.PrincipalCollection;\nimport java.util.Set;\nimport java.util.stream.Collectors;\n\n// ══ Shiro 版「认证 + 授权」的落点：两个回调方法就是全部 ══\npublic class UserRealm extends AuthorizingRealm {\n\n    private final ISysUserService userService;\n\n    public UserRealm(ISysUserService userService) {\n        this.userService = userService;\n    }\n\n    /**\n     * 认证回调（你是谁）：登录时触发。\n     * 职责：查库 → 状态校验 → 把数据库密文交给 CredentialsMatcher 比对。\n     * 注意：Realm 自己不比对密码！\n     */\n    @Override\n    protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) {\n        String username = (String) token.getPrincipal();       // 登录表单里的用户名\n        SysUser user = userService.selectUserByUserName(username);\n        if (user == null) {\n            throw new UnknownAccountException(\"用户不存在\");\n        }\n        // 把用户(Principal)与密文交给框架，匹配器用明文重算后 equals\n        return new SimpleAuthenticationInfo(user, user.getPassword(), getName());\n    }\n\n    /**\n     * 授权回调（你能干什么）：首次权限校验时触发。\n     * 职责：收集角色键（roleKey）与权限字符串（perms）两个集合。\n     */\n    @Override\n    protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {\n        SysUser user = (SysUser) principals.getPrimaryPrincipal();   // 认证回调存入的 Principal\n        SimpleAuthorizationInfo info = new SimpleAuthorizationInfo();\n\n        // 角色键集合：对应 @RequiresRoles / hasRole 校验\n        info.setRoles(user.getRoles() == null\n            ? Set.of()\n            : user.getRoles().stream().map(r -> r.getRoleKey()).collect(Collectors.toSet()));\n\n        // 权限字符串集合：对应 @RequiresPermissions / hasPermi 校验\n        info.setStringPermissions(user.getPermissions());\n        return info;\n    }\n}"
     },
     {
       "id": "ry-sec-userdetailsservice",
@@ -32,6 +32,13 @@
     "「Shiro 过时了」——传统单体 + 会话应用里 Shiro 依然轻量好用；它输的只是「与 Spring 生态 + 无状态潮流」的契合度。",
     "「Realm 和 UserDetailsService 功能不同」——它们是同一职责（认证/授权数据源）在不同框架里的名字，本讲练的就是这张映射表。"
   ],
-  "tags": ["Shiro", "Spring Security", "方案对比"],
-  "prereq": ["ry-architecture", "sb-security-jwt"]
+  "tags": [
+    "Shiro",
+    "Spring Security",
+    "方案对比"
+  ],
+  "prereq": [
+    "ry-architecture",
+    "sb-security-jwt"
+  ]
 }

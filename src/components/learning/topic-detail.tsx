@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Lightbulb } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  Lightbulb,
+  MessageSquareQuote,
+  NotebookPen,
+  Target,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LiquidGlassCard } from "@/components/glass/liquid-glass-card";
 import { CodeExampleCard } from "@/components/learning/code-example-card";
@@ -15,29 +22,34 @@ import type { Topic } from "@/lib/types";
 export function TopicDetail({ topic }: { topic: Topic }) {
   return (
     <Tabs defaultValue="concept" className="gap-4">
-      <TabsList className="liquid-glass liquid-glass-strong h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl p-1">
+      {/* 模仿底部导航的语言：图标 + 文字竖排，激活 = 主色 + 荧光 */}
+      <TabsList className="liquid-glass liquid-glass-strong h-auto w-full justify-around gap-0 overflow-x-auto rounded-2xl p-1">
         <TabsTrigger
           value="concept"
-          className="touch-target h-9 rounded-lg border border-transparent px-3 text-[13px] text-muted-foreground transition-colors data-[state=active]:border-primary/25 data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-none"
+          className="group touch-target h-auto flex-1 flex-col gap-0.5 rounded-xl border-transparent bg-transparent px-1 py-2 text-[11px] text-muted-foreground shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
         >
+          <BookOpen className="size-4 transition-all group-data-[state=active]:drop-shadow-[0_0_8px_rgba(96,165,250,0.7)]" />
           概念讲解
         </TabsTrigger>
         <TabsTrigger
           value="feynman"
-          className="touch-target h-9 rounded-lg border border-transparent px-3 text-[13px] text-muted-foreground transition-colors data-[state=active]:border-primary/25 data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-none"
+          className="group touch-target h-auto flex-1 flex-col gap-0.5 rounded-xl border-transparent bg-transparent px-1 py-2 text-[11px] text-muted-foreground shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
         >
+          <MessageSquareQuote className="size-4 transition-all group-data-[state=active]:drop-shadow-[0_0_8px_rgba(96,165,250,0.7)]" />
           我来讲解
         </TabsTrigger>
         <TabsTrigger
           value="quiz"
-          className="touch-target h-9 rounded-lg border border-transparent px-3 text-[13px] text-muted-foreground transition-colors data-[state=active]:border-primary/25 data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-none"
+          className="group touch-target h-auto flex-1 flex-col gap-0.5 rounded-xl border-transparent bg-transparent px-1 py-2 text-[11px] text-muted-foreground shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
         >
+          <Target className="size-4 transition-all group-data-[state=active]:drop-shadow-[0_0_8px_rgba(96,165,250,0.7)]" />
           习题
         </TabsTrigger>
         <TabsTrigger
           value="notes"
-          className="touch-target h-9 rounded-lg border border-transparent px-3 text-[13px] text-muted-foreground transition-colors data-[state=active]:border-primary/25 data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-none"
+          className="group touch-target h-auto flex-1 flex-col gap-0.5 rounded-xl border-transparent bg-transparent px-1 py-2 text-[11px] text-muted-foreground shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
         >
+          <NotebookPen className="size-4 transition-all group-data-[state=active]:drop-shadow-[0_0_8px_rgba(96,165,250,0.7)]" />
           笔记
         </TabsTrigger>
       </TabsList>

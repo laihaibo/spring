@@ -13,7 +13,7 @@
       "language": "java",
       "runnableFileName": "PerfAspect.java",
       "summary": "统计任意 service 方法耗时的完整切面：Around 通知 + 切点表达式 + JoinPoint 取签名。",
-      "code": "package com.example.aspect;\n\nimport org.aspectj.lang.ProceedingJoinPoint;\nimport org.aspectj.lang.annotation.Around;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Pointcut;\nimport org.springframework.stereotype.Component;\n\n@Aspect\n@Component\npublic class PerfAspect {\n\n    /** service 包及子包下所有类的所有方法（不限参数） */\n    @Pointcut(\"execution(* com.example.service..*.*(..))\")\n    public void serviceLayer() {\n    }\n\n    @Around(\"serviceLayer()\")\n    public Object measure(ProceedingJoinPoint pjp) throws Throwable {\n        long start = System.nanoTime();\n        try {\n            return pjp.proceed();\n        } finally {\n            long costMs = (System.nanoTime() - start) / 1_000_000;\n            System.out.println(pjp.getSignature().toShortString() + \" 耗时 \" + costMs + \"ms\");\n        }\n    }\n}"
+      "code": "package com.example.aspect;\n\nimport org.aspectj.lang.ProceedingJoinPoint;\nimport org.aspectj.lang.annotation.Around;\nimport org.aspectj.lang.annotation.Aspect;\nimport org.aspectj.lang.annotation.Pointcut;\nimport org.springframework.stereotype.Component;\n\n// ══ 切面：把“统计每个 service 方法耗时”从业务代码里抽出来 ══\n@Aspect      // 声明这是一个切面\n@Component   // 切面本身也必须是 Spring Bean 才会生效\npublic class PerfAspect {\n\n    /**\n     * 切点：service 包及子包下所有类的所有方法（参数不限）。\n     * 逐段拆解：* = 任意返回类型；..* = 子包任意类；.* = 任意方法名；( .. ) = 任意参数\n     */\n    @Pointcut(\"execution(* com.example.service..*.*(..))\")\n    public void serviceLayer() {\n    }\n\n    // @Around 全能通知：方法前后都能插手（计时必须用它）\n    @Around(\"serviceLayer()\")\n    public Object measure(ProceedingJoinPoint pjp) throws Throwable {\n        long start = System.nanoTime();      // ① 前置：记开始时间\n        try {\n            return pjp.proceed();            // ② 放行：真正执行目标方法\n        } finally {\n            // ③ 后置：无论成功失败都统计（finally 保证）\n            long costMs = (System.nanoTime() - start) / 1_000_000;\n            System.out.println(pjp.getSignature().toShortString() + \" 耗时 \" + costMs + \"ms\");\n        }\n    }\n}"
     },
     {
       "id": "aop-target",
@@ -30,6 +30,13 @@
     "「连接点和切点是一回事」——连接点是所有可拦截的点，切点是筛选条件；全城的人 vs 符合条件被安检的人。",
     "「@Aspect 加上就能生效」——还必须让 Spring 把它当 Bean 管理（@Component 或 @Bean），且目标也得是 Spring Bean。"
   ],
-  "tags": ["AOP", "切面", "横切关注点", "术语"],
-  "prereq": ["ioc-container-basics"]
+  "tags": [
+    "AOP",
+    "切面",
+    "横切关注点",
+    "术语"
+  ],
+  "prereq": [
+    "ioc-container-basics"
+  ]
 }

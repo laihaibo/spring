@@ -14,7 +14,7 @@
       "runnableFileName": "AjaxResult.java",
       "summary": "统一响应的完整实现：继承 HashMap + 静态工厂，全站响应结构唯一。",
       "sourceNote": "RuoYi-Vue · ruoyi-common/.../core/domain/AjaxResult.java（节选简化）",
-      "code": "package com.ruoyi.common.core.domain;\n\nimport com.ruoyi.common.constant.HttpStatus;\nimport java.util.HashMap;\n\npublic class AjaxResult extends HashMap<String, Object> {\n\n    private static final long serialVersionUID = 1L;\n\n    public static final String CODE_TAG = \"code\";\n    public static final String MSG_TAG = \"msg\";\n    public static final String DATA_TAG = \"data\";\n\n    public AjaxResult(int code, String msg) {\n        super.put(CODE_TAG, code);\n        super.put(MSG_TAG, msg);\n    }\n\n    public AjaxResult(int code, String msg, Object data) {\n        this(code, msg);\n        if (data != null) {\n            super.put(DATA_TAG, data);\n        }\n    }\n\n    public static AjaxResult success() {\n        return AjaxResult.success(\"操作成功\");\n    }\n\n    public static AjaxResult success(Object data) {\n        return AjaxResult.success(\"操作成功\", data);\n    }\n\n    public static AjaxResult error(String msg) {\n        return AjaxResult.error(HttpStatus.ERROR, msg);\n    }\n\n    public static AjaxResult error(int code, String msg) {\n        return new AjaxResult(code, msg, null);\n    }\n}"
+      "code": "package com.ruoyi.common.core.domain;\n\nimport com.ruoyi.common.constant.HttpStatus;\nimport java.util.HashMap;\n\n// ══ 全站统一响应结构：前端永远拿到 {code, msg, data} ══\n// 继承 HashMap 的好处：JSON 序列化零配置，键即字段\npublic class AjaxResult extends HashMap<String, Object> {\n\n    private static final long serialVersionUID = 1L;\n\n    public static final String CODE_TAG = \"code\";   // 200 成功 / 500 失败\n    public static final String MSG_TAG = \"msg\";\n    public static final String DATA_TAG = \"data\";\n\n    public AjaxResult(int code, String msg) {\n        super.put(CODE_TAG, code);\n        super.put(MSG_TAG, msg);\n    }\n\n    public AjaxResult(int code, String msg, Object data) {\n        this(code, msg);\n        if (data != null) {                          // data 为 null 时不放键，响应更干净\n            super.put(DATA_TAG, data);\n        }\n    }\n\n    // ── 静态工厂：语义化构造，调用方不用记 code 值 ──\n\n    public static AjaxResult success() {\n        return AjaxResult.success(\"操作成功\");\n    }\n\n    public static AjaxResult success(Object data) {\n        return AjaxResult.success(\"操作成功\", data);\n    }\n\n    public static AjaxResult error(String msg) {\n        return AjaxResult.error(HttpStatus.ERROR, msg);   // 500\n    }\n\n    public static AjaxResult error(int code, String msg) {\n        return new AjaxResult(code, msg, null);\n    }\n}"
     },
     {
       "id": "ry-common-base",
@@ -32,6 +32,14 @@
     "「分页必须手动传 pageNum 到 Service」——分页参数从 HTTP 请求自动进 PageHelper（startPage），Service 不感知分页存在。",
     "「BaseEntity 的审计字段会自动填充」——RuoYi 在业务层显式 set 或用拦截器设置，继承只是统一承载，不等于自动写入。"
   ],
-  "tags": ["common", "AjaxResult", "分页", "BaseEntity"],
-  "prereq": ["ry-architecture", "sb-exception-handling"]
+  "tags": [
+    "common",
+    "AjaxResult",
+    "分页",
+    "BaseEntity"
+  ],
+  "prereq": [
+    "ry-architecture",
+    "sb-exception-handling"
+  ]
 }

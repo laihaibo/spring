@@ -21,7 +21,7 @@
       "language": "java",
       "runnableFileName": "OrderService.java",
       "summary": "业务代码的姿势：用 BizException 表达业务失败，交给全局处理器转响应。",
-      "code": "package com.example.order;\n\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class OrderService {\n\n    private final OrderMapper orderMapper;\n\n    public OrderService(OrderMapper orderMapper) {\n        this.orderMapper = orderMapper;\n    }\n\n    public String cancel(long orderId, long userId) {\n        var order = orderMapper.selectById(orderId);\n        if (order == null) {\n            throw new BizException(404, \"订单不存在\");\n        }\n        if (order.ownerId() != userId) {\n            throw new BizException(403, \"无权操作他人订单\");\n        }\n        orderMapper.updateStatus(orderId, \"CANCELLED\");\n        return \"ok\";\n    }\n}\n\nclass BizException extends RuntimeException {\n    private final int code;\n\n    BizException(int code, String message) {\n        super(message);\n        this.code = code;\n    }\n\n    int getCode() {\n        return code;\n    }\n}\n\ninterface OrderMapper {\n    OrderDTO selectById(long id);\n    void updateStatus(long id, String status);\n}\n\nrecord OrderDTO(long id, long ownerId, String status) {}"
+      "code": "package com.example.order;\n\nimport org.springframework.stereotype.Service;\n\n// ══ 业务代码的姿势：用语义化异常表达失败，不写 try-catch ══\n// 异常沿调用栈上抛，由全局 @RestControllerAdvice 统一转换成响应\n@Service\npublic class OrderService {\n\n    private final OrderMapper orderMapper;\n\n    public OrderService(OrderMapper orderMapper) {\n        this.orderMapper = orderMapper;\n    }\n\n    public String cancel(long orderId, long userId) {\n        var order = orderMapper.selectById(orderId);\n        if (order == null) {\n            // 业务失败 ①：资源不存在 → 404 语义\n            throw new BizException(404, \"订单不存在\");\n        }\n        if (order.ownerId() != userId) {\n            // 业务失败 ②：越权操作 → 403 语义\n            throw new BizException(403, \"无权操作他人订单\");\n        }\n        // 正常路径：无任何异常处理噪音\n        orderMapper.updateStatus(orderId, \"CANCELLED\");\n        return \"ok\";\n    }\n}\n\n// 业务异常：携带错误码，让全局处理器知道该转成什么响应\nclass BizException extends RuntimeException {\n    private final int code;\n\n    BizException(int code, String message) {\n        super(message);\n        this.code = code;\n    }\n\n    int getCode() {\n        return code;\n    }\n}\n\ninterface OrderMapper {\n    OrderDTO selectById(long id);\n    void updateStatus(long id, String status);\n}\n\n// record：不可变数据载体（Java 16+）\nrecord OrderDTO(long id, long ownerId, String status) {}"
     }
   ],
   "misconceptions": [
@@ -30,6 +30,13 @@
     "「HTTP 状态码必须与 body.code 一致」——RuoYi 风格 HTTP 恒 200 + code 表意；RESTful 风格用 HTTP 码表达。两种都是约定，全站统一即可。",
     "「@RestControllerAdvice 只能处理异常」——它还能配合 @ModelAttribute/@InitBinder 做全局数据绑定，异常处理只是最常用的一面。"
   ],
-  "tags": ["异常处理", "RestControllerAdvice", "统一响应"],
-  "prereq": ["sb-application-class", "aop-concepts"]
+  "tags": [
+    "异常处理",
+    "RestControllerAdvice",
+    "统一响应"
+  ],
+  "prereq": [
+    "sb-application-class",
+    "aop-concepts"
+  ]
 }

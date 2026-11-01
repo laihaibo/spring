@@ -21,7 +21,7 @@
       "language": "java",
       "runnableFileName": "InitOrderDemo.java",
       "summary": "三种初始化回调的执行顺序：@PostConstruct 先于 InitializingBean 先于 init-method。",
-      "code": "package com.example.lifecycle;\n\nimport jakarta.annotation.PostConstruct;\nimport org.springframework.beans.factory.InitializingBean;\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\n\n@Configuration\npublic class InitOrderDemo {\n\n    @Bean(initMethod = \"customInit\")\n    public OrderedBean orderedBean() {\n        return new OrderedBean();\n    }\n}\n\nclass OrderedBean implements InitializingBean {\n\n    @PostConstruct\n    public void annotationInit() {\n        System.out.println(\"顺序1: @PostConstruct\");\n    }\n\n    @Override\n    public void afterPropertiesSet() {\n        System.out.println(\"顺序2: InitializingBean.afterPropertiesSet\");\n    }\n\n    public void customInit() {\n        System.out.println(\"顺序3: init-method 指定的 customInit\");\n    }\n}"
+      "code": "package com.example.lifecycle;\n\nimport jakarta.annotation.PostConstruct;\nimport org.springframework.beans.factory.InitializingBean;\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\n\n// ══ 三种初始化回调的执行顺序：注解 → 接口 → init-method ══\n@Configuration\npublic class InitOrderDemo {\n\n    // initMethod 指向普通方法，作为第三顺位的初始化回调\n    @Bean(initMethod = \"customInit\")\n    public OrderedBean orderedBean() {\n        return new OrderedBean();\n    }\n}\n\nclass OrderedBean implements InitializingBean {\n\n    // 顺位 1：@PostConstruct —— 标准注解，最先执行\n    @PostConstruct\n    public void annotationInit() {\n        System.out.println(\"顺序1: @PostConstruct\");\n    }\n\n    // 顺位 2：InitializingBean 接口 —— Spring 专有接口回调\n    @Override\n    public void afterPropertiesSet() {\n        System.out.println(\"顺序2: InitializingBean.afterPropertiesSet\");\n    }\n\n    // 顺位 3：@Bean(initMethod) 指定的普通方法 —— 与 Spring 解耦，最后执行\n    public void customInit() {\n        System.out.println(\"顺序3: init-method 指定的 customInit\");\n    }\n}"
     }
   ],
   "misconceptions": [
@@ -30,6 +30,12 @@
     "「Bean 销毁回调一定会执行」——只有 singleton 随容器关闭触发；prototype Bean 创建后容器就撒手不管，销毁回调不会调用。",
     "「AOP 代理在构造器阶段就生成」——代理由 BeanPostProcessor 在初始化后的后置处理阶段包装，原始对象先完整走完创建流程。"
   ],
-  "tags": ["生命周期", "PostConstruct", "BeanPostProcessor"],
-  "prereq": ["bean-registration"]
+  "tags": [
+    "生命周期",
+    "PostConstruct",
+    "BeanPostProcessor"
+  ],
+  "prereq": [
+    "bean-registration"
+  ]
 }

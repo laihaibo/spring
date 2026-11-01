@@ -2,8 +2,11 @@
 
 import * as React from "react";
 import type { ShikiTransformer } from "shiki";
-import { Check, Copy, FileCode2 } from "lucide-react";
+import { Check, Copy, FileCode2, WrapText } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** 换行偏好全局记忆（默认换行：移动端免横向拖拽） */
+const WRAP_PREF_KEY = "spring-learn:codewrap";
 
 /**
  * 与 shadcn 官方 code-block 组件同接口的本地实现。
@@ -184,32 +187,71 @@ export function CodeBlockContent({
   children,
   code,
   language = "java",
-  wrap = false,
+  wrap: wrapProp,
   lineNumbers = false,
   ...props
 }: React.ComponentProps<"div"> & {
   code: string;
   language?: string;
+  /** 不传则读取全局偏好（默认换行） */
   wrap?: boolean;
   lineNumbers?: boolean;
 }) {
   const highlighted = useHighlightedCode(code, language);
+  const [globalWrap, setGlobalWrap] = React.useState(true);
+  const [ready, setReady] = React.useState(false);
+
+  // 首帧后读取持久化的换行偏好
+  React.useEffect(() => {
+    const stored = window.localStorage.getItem(WRAP_PREF_KEY);
+    if (stored !== null) setGlobalWrap(stored === "true");
+    setReady(true);
+  }, []);
+
+  const wrap = wrapProp ?? globalWrap;
+
+  const toggleWrap = () => {
+    setGlobalWrap((w) => {
+      const next = !w;
+      try {
+        window.localStorage.setItem(WRAP_PREF_KEY, String(next));
+      } catch {
+        // 隐私模式忽略
+      }
+      return next;
+    });
+  };
 
   return (
     <div
       data-slot="code-block-content"
       data-numbered={lineNumbers || undefined}
+      data-wrap={wrap ? "true" : undefined}
       className={cn(
-        "cb-scroll min-h-0 min-w-0 overflow-x-auto overscroll-x-contain text-start outline-none",
+        "cb-scroll relative min-h-0 min-w-0 overflow-x-auto overscroll-x-contain text-start outline-none",
         className,
       )}
       {...props}
     >
+      {ready && (
+        <button
+          type="button"
+          onClick={toggleWrap}
+          aria-label={wrap ? "切换为横向滚动" : "切换为自动换行"}
+          title={wrap ? "当前：自动换行" : "当前：横向滚动"}
+          className={cn(
+            "absolute right-2 bottom-2 z-10 flex size-8 items-center justify-center rounded-lg border border-white/10 bg-black/40 text-white/50 backdrop-blur transition-colors hover:text-white",
+            wrap && "text-white/85",
+          )}
+        >
+          <WrapText className="size-4" />
+        </button>
+      )}
       {highlighted ? (
         <div className="cb-pre" dangerouslySetInnerHTML={{ __html: highlighted }} />
       ) : (
         <pre className="cb-pre" dir="ltr" tabIndex={0}>
-          <code className={cn("cb-code font-mono", wrap && "whitespace-pre-wrap")}>
+          <code className={cn("cb-code font-mono")}>
             {code
               .replace(/\n$/, "")
               .split("\n")
