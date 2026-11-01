@@ -30,7 +30,7 @@ export function CodeExampleCard({ example }: { example: CodeExample }) {
   };
 
   return (
-    <figure className="m-0">
+    <figure className="m-0 min-w-0">
       <CodeBlock>
         <CodeBlockHeader>
           <CodeBlockTitle>

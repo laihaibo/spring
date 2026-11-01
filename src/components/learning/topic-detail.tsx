@@ -16,16 +16,28 @@ export function TopicDetail({ topic }: { topic: Topic }) {
   return (
     <Tabs defaultValue="concept" className="gap-4">
       <TabsList className="liquid-glass liquid-glass-strong h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl p-1">
-        <TabsTrigger value="concept" className="touch-target h-9 px-3 text-[13px]">
+        <TabsTrigger
+          value="concept"
+          className="touch-target h-9 rounded-lg border border-transparent px-3 text-[13px] text-muted-foreground transition-colors data-[state=active]:border-primary/25 data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-none"
+        >
           概念讲解
         </TabsTrigger>
-        <TabsTrigger value="feynman" className="touch-target h-9 px-3 text-[13px]">
+        <TabsTrigger
+          value="feynman"
+          className="touch-target h-9 rounded-lg border border-transparent px-3 text-[13px] text-muted-foreground transition-colors data-[state=active]:border-primary/25 data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-none"
+        >
           我来讲解
         </TabsTrigger>
-        <TabsTrigger value="quiz" className="touch-target h-9 px-3 text-[13px]">
+        <TabsTrigger
+          value="quiz"
+          className="touch-target h-9 rounded-lg border border-transparent px-3 text-[13px] text-muted-foreground transition-colors data-[state=active]:border-primary/25 data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-none"
+        >
           习题
         </TabsTrigger>
-        <TabsTrigger value="notes" className="touch-target h-9 px-3 text-[13px]">
+        <TabsTrigger
+          value="notes"
+          className="touch-target h-9 rounded-lg border border-transparent px-3 text-[13px] text-muted-foreground transition-colors data-[state=active]:border-primary/25 data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-none"
+        >
           笔记
         </TabsTrigger>
       </TabsList>

@@ -74,7 +74,7 @@ function CodeRenderer({ className, children, node }: CodeProps) {
   const path = metaValue(meta, "path") ?? "Snippet.java";
 
   return (
-    <div className="my-3">
+    <div className="my-3 min-w-0">
       <CodeBlock>
         <CodeBlockHeader>
           <CodeBlockTitle>

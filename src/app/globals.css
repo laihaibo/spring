@@ -25,11 +25,13 @@
   --input: oklch(0.2 0.04 268 / 18%);
   --ring: oklch(0.55 0.19 258);
 
-  /* 液态玻璃亮色变量 */
+  /* 液态玻璃亮色变量：翘边双层投影 */
   --glass-bg: rgba(255, 255, 255, 0.55);
   --glass-border: rgba(255, 255, 255, 0.75);
   --glass-highlight: rgba(255, 255, 255, 0.9);
-  --glass-shadow: 0 8px 32px rgba(30, 41, 89, 0.12);
+  --glass-shadow:
+    0 1px 2px rgba(30, 41, 89, 0.05),
+    0 8px 24px -6px rgba(30, 41, 89, 0.14);
   --mesh-opacity: 0.45;
   --sidebar: oklch(0.98 0.01 262 / 72%);
   --sidebar-foreground: oklch(0.22 0.04 268);
@@ -64,7 +66,9 @@
   --glass-bg: rgba(255, 255, 255, 0.06);
   --glass-border: rgba(255, 255, 255, 0.2);
   --glass-highlight: rgba(255, 255, 255, 0.28);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --glass-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 8px 24px -6px rgba(0, 0, 0, 0.45);
   --mesh-opacity: 0.5;
   --sidebar: oklch(0.18 0.03 272 / 78%);
   --sidebar-foreground: oklch(0.95 0.012 250);
@@ -156,6 +160,7 @@
    否则未分层样式会压过 .fixed / .absolute 导致导航、弹窗定位失效 */
 @layer components {
 /* ---------- 液态玻璃三层体系 ---------- */
+/* 玻璃材质：内高光 + 翘边投影（不加彩边，材质语言=模糊/半透明/内高光） */
 .liquid-glass {
   position: relative;
   background: var(--glass-bg);
@@ -167,28 +172,6 @@
     var(--glass-shadow);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
-}
-
-/* 彩色边缘高光：顶部一条 1px 渐变描边 */
-.liquid-glass::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgba(96, 165, 250, 0.55),
-    rgba(255, 255, 255, 0.1) 35%,
-    rgba(167, 139, 250, 0.45) 70%,
-    rgba(34, 211, 238, 0.4)
-  );
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
 }
 
 .liquid-glass-strong {
@@ -342,12 +325,23 @@
 .cb-code,
 .cb-pre code {
   display: block;
-  min-width: max-content;
+  /* 不用 min-width:max-content：长行靠 white-space:pre 溢出 + 外层 overflow-x 滚动，
+     否则内容会反向撑破带 backdrop-filter 的祖先容器（iOS Safari 裁剪缺陷） */
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.65;
   color: #abb2bf;
   white-space: pre;
+}
+
+@media (max-width: 640px) {
+  .cb-scroll {
+    font-size: 12.5px;
+  }
+  .cb-code,
+  .cb-pre code {
+    font-size: 12.5px;
+  }
 }
 
 /* 行号：CSS counter 装饰，不进入复制内容 */
@@ -357,7 +351,7 @@
   display: block;
   counter-increment: line;
   position: relative;
-  padding-left: 3rem;
+  padding-left: 2.5rem;
 }
 
 [data-numbered] .cb-code,
@@ -370,7 +364,7 @@
   content: counter(line);
   position: absolute;
   left: 0;
-  width: 2rem;
+  width: 1.6rem;
   text-align: right;
   color: rgba(255, 255, 255, 0.25);
   user-select: none;
