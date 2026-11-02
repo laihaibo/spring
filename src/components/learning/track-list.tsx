@@ -30,7 +30,7 @@ export function TrackList({ topics }: { topics: Topic[] }) {
       {grouped.map((group) => (
         <section key={group.level} className="space-y-3">
           <h2 className="flex items-center gap-2 px-1 text-[15px] font-semibold">
-            <span className="rounded-md bg-white/10 px-2 py-0.5 text-[12px] text-muted-foreground">
+            <span className="rounded-md bg-foreground/10 px-2 py-0.5 text-[12px] text-muted-foreground">
               Lv.{group.level}
             </span>
             {LEVEL_LABEL[group.level]}
@@ -38,7 +38,7 @@ export function TrackList({ topics }: { topics: Topic[] }) {
               {group.items.length} 个知识点
             </span>
           </h2>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {group.items.map((topic, i) => (
               <TopicCard key={topic.id} topic={topic} index={i} />
             ))}

@@ -32,16 +32,16 @@ export default async function TopicPage({ params }: PageProps) {
     .filter((t): t is NonNullable<typeof t> => Boolean(t));
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 md:max-w-4xl md:py-8">
+    <main className="mx-auto w-full max-w-3xl px-4 py-6 md:max-w-4xl md:py-8 lg:max-w-5xl lg:px-8 lg:py-10">
       <header className="mb-5">
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+          <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-300">
             {LEVEL_LABEL[topic.level]}
           </span>
           {topic.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground"
+              className="rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] text-muted-foreground"
             >
               {tag}
             </span>
@@ -56,7 +56,7 @@ export default async function TopicPage({ params }: PageProps) {
               <Link
                 key={p.id}
                 href={`/learn/${p.track}/${p.id}`}
-                className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground"
+                className="rounded-full border border-border bg-foreground/5 px-2.5 py-1 text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-foreground"
               >
                 {p.title}
               </Link>

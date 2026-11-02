@@ -65,7 +65,7 @@ export function FeynmanPanel({ topic }: { topic: Topic }) {
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          className="w-full resize-y rounded-xl border border-white/15 bg-white/5 p-3 text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground/60 focus:border-[var(--primary)]/60 focus:ring-2 focus:ring-ring/30"
+          className="w-full resize-y rounded-xl border border-border bg-foreground/5 p-3 text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground/60 focus:border-[var(--primary)]/60 focus:ring-2 focus:ring-ring/30"
         />
         <div className="mt-3 flex items-center justify-between gap-3">
           <span className="nums text-xs text-muted-foreground">
@@ -81,7 +81,7 @@ export function FeynmanPanel({ topic }: { topic: Topic }) {
       {record?.feynmanNote ? (
         <LiquidGlassCard soft className="p-4">
           <div className="mb-3 flex items-center gap-2 text-[15px] font-medium">
-            <Lightbulb className="size-4 text-amber-300" />
+            <Lightbulb className="size-4 text-amber-600 dark:text-amber-300" />
             写完自查：三个引导问题
           </div>
           <ol className="space-y-2.5">

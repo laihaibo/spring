@@ -68,13 +68,13 @@ function FinishCard({
 }) {
   return (
     <LiquidGlassCard soft className="p-6 text-center">
-      <Trophy className="mx-auto size-10 text-amber-300" />
+      <Trophy className="mx-auto size-10 text-amber-600 dark:text-amber-300" />
       <h3 className="mt-3 text-[17px] font-semibold">本轮刷题完成</h3>
       <p className="mt-1 text-[13.5px] text-muted-foreground">
         共 {total} 题，答错的已自动进入错题本（7 天后重现）。
       </p>
       <div className="mt-4 flex items-center justify-center gap-3">
-        <Button variant="ghost" className="touch-target h-10 border border-white/15 bg-white/5" onClick={onRestart}>
+        <Button variant="ghost" className="touch-target h-10 border border-border bg-foreground/5" onClick={onRestart}>
           <RotateCcw className="size-4" />
           再来一轮
         </Button>

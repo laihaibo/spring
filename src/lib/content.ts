@@ -85,19 +85,19 @@ export const TRACK_META: Record<
     label: "Spring 核心",
     brief: "IoC / AOP / 事务 / 事件",
     gradient: "from-cyan-400 to-blue-500",
-    text: "text-cyan-300",
+    text: "text-cyan-700 dark:text-cyan-300",
   },
   springboot: {
     label: "Spring Boot",
     brief: "自动装配 / 配置 / 安全 / 缓存",
     gradient: "from-violet-400 to-purple-500",
-    text: "text-violet-300",
+    text: "text-violet-700 dark:text-violet-300",
   },
   ruoyi: {
     label: "RuoYi",
     brief: "RBAC / 权限模型 / 核心源码",
     gradient: "from-amber-400 to-pink-500",
-    text: "text-amber-300",
+    text: "text-amber-700 dark:text-amber-300",
   },
 };
 

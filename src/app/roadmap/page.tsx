@@ -8,7 +8,7 @@ export const metadata = { title: "学习路线图" };
 
 export default function RoadmapPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 md:max-w-4xl md:py-8">
+    <main className="mx-auto w-full max-w-3xl px-4 py-6 md:max-w-4xl md:py-8 lg:max-w-6xl lg:px-8 lg:py-10">
       <p className="mb-5 text-[13.5px] text-muted-foreground">
         按前置依赖深度分列：从左往右，先修完左边再修右边。
       </p>
@@ -48,9 +48,9 @@ export default function RoadmapPage() {
 function TopicNode({ topic }: { topic: Topic }) {
   return (
     <Link href={`/learn/${topic.track}/${topic.id}`}>
-      <LiquidGlassCard soft className="p-3 transition-colors hover:bg-white/12">
+      <LiquidGlassCard soft className="p-3 transition-colors hover:bg-foreground/12">
         <div className="mb-1 flex items-center gap-1.5">
-          <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] text-muted-foreground">
             Lv.{topic.level} {LEVEL_LABEL[topic.level]}
           </span>
         </div>

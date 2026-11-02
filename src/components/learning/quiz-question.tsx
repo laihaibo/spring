@@ -76,7 +76,7 @@ function KindBadge({ quiz }: { quiz: Quiz }) {
             ? "代码阅读"
             : "代码补全";
   return (
-    <span className="rounded-full border border-white/15 bg-white/8 px-2 py-0.5 text-[11px] text-muted-foreground">
+    <span className="rounded-full border border-border bg-foreground/8 px-2 py-0.5 text-[11px] text-muted-foreground">
       {label}
     </span>
   );
@@ -183,15 +183,15 @@ function AnswerArea({ quiz, engine }: { quiz: Quiz; engine: QuizEngine }) {
                   onChange={(e) => engine.setBlank(i, e.target.value)}
                   aria-label={`第 ${i + 1} 个空的候选词`}
                   className={cn(
-                    "touch-target h-11 flex-1 rounded-xl border bg-white/5 px-3 text-[15px] outline-none",
-                    "border-white/15 focus:border-[var(--primary)]/60",
+                    "touch-target h-11 flex-1 rounded-xl border bg-foreground/5 px-3 text-[15px] outline-none",
+                    "border-border focus:border-[var(--primary)]/60",
                     ok && "border-emerald-400/60 bg-emerald-400/10",
                     bad && "border-destructive/60 bg-destructive/10",
                   )}
                 >
                   <option value="">选择候选词…</option>
                   {blank.candidates.map((c) => (
-                    <option key={c} value={c} className="bg-neutral-900 text-white">
+                    <option key={c} value={c} className="bg-background text-foreground">
                       {c}
                     </option>
                   ))}
@@ -232,7 +232,7 @@ function TemplateBody({ quiz, engine }: { quiz: Extract<Quiz, { kind: "code-comp
                         "nums mx-0.5 inline-block rounded-md border px-1.5 align-middle text-[12px]",
                         value
                           ? "border-[var(--primary)]/60 bg-[var(--primary)]/20 text-[var(--primary)]"
-                          : "border-dashed border-amber-300/50 bg-amber-300/10 text-amber-200",
+                          : "border-dashed border-amber-600/50 bg-amber-300/10 text-amber-700 dark:border-amber-300/50 dark:text-amber-200",
                       )}
                     >
                       {value ? value : `空${i + 1}`}
@@ -260,7 +260,7 @@ function Analysis({ quiz, correct }: { quiz: Quiz; correct: boolean }) {
         className={cn(
           "flex items-center gap-2 rounded-xl border px-3.5 py-3 text-[15px] font-medium",
           correct
-            ? "border-emerald-400/50 bg-emerald-400/12 text-emerald-300"
+            ? "border-emerald-400/50 bg-emerald-400/12 text-emerald-600 dark:text-emerald-300"
             : "border-destructive/50 bg-destructive/12 text-destructive",
         )}
       >
@@ -272,7 +272,7 @@ function Analysis({ quiz, correct }: { quiz: Quiz; correct: boolean }) {
       </div>
 
       {quiz.optionExplanations && (
-        <div className="rounded-xl border border-white/12 bg-white/5 p-3.5">
+        <div className="rounded-xl border border-border bg-foreground/5 p-3.5">
           <div className="mb-2 text-[14px] font-medium">逐选项解析</div>
           <ul className="space-y-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
             {Object.entries(quiz.optionExplanations).map(([key, text]) => (
@@ -285,7 +285,7 @@ function Analysis({ quiz, correct }: { quiz: Quiz; correct: boolean }) {
         </div>
       )}
 
-      <div className="rounded-xl border border-white/12 bg-white/5 p-3.5">
+      <div className="rounded-xl border border-border bg-foreground/5 p-3.5">
         <div className="mb-1.5 flex items-center gap-1.5 text-[14px] font-medium">
           <BookOpen className="size-4 text-[var(--primary)]" />
           本题解析
@@ -293,12 +293,12 @@ function Analysis({ quiz, correct }: { quiz: Quiz; correct: boolean }) {
         <p className="text-[14px] leading-relaxed text-muted-foreground">{quiz.explanation}</p>
       </div>
 
-      <div className="rounded-xl border border-amber-300/25 bg-amber-300/8 p-3.5">
-        <div className="mb-1.5 flex items-center gap-1.5 text-[14px] font-medium text-amber-200">
+      <div className="rounded-xl border border-amber-600/30 bg-amber-300/8 p-3.5 dark:border-amber-300/25">
+        <div className="mb-1.5 flex items-center gap-1.5 text-[14px] font-medium text-amber-700 dark:text-amber-200">
           <Sparkles className="size-4" />
           为什么这么设计
         </div>
-        <p className="text-[14px] leading-relaxed text-amber-100/80">{quiz.designWhy}</p>
+        <p className="text-[14px] leading-relaxed text-amber-800 dark:text-amber-100/80">{quiz.designWhy}</p>
       </div>
 
       {related.length > 0 && (

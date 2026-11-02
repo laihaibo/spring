@@ -77,7 +77,7 @@ export function SettingsDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="liquid-glass liquid-glass-strong border-white/20 sm:max-w-md">
+        <DialogContent className="liquid-glass liquid-glass-strong border-border sm:max-w-md">
           <DialogHeader>
             <DialogTitle>设置</DialogTitle>
             <DialogDescription>外观与学习数据管理</DialogDescription>
@@ -99,7 +99,7 @@ export function SettingsDialog({
                         "touch-target flex h-11 items-center justify-center gap-1.5 rounded-xl border text-[13px] transition-colors",
                         theme === opt.value
                           ? "border-[var(--primary)]/70 bg-[var(--primary)]/15"
-                          : "border-white/15 bg-white/5 text-muted-foreground hover:bg-white/10",
+                          : "border-border bg-foreground/5 text-muted-foreground hover:bg-foreground/10",
                       )}
                     >
                       <opt.icon className="size-4" />
@@ -117,7 +117,7 @@ export function SettingsDialog({
                 <div className="grid gap-2">
                   <Button
                     variant="ghost"
-                    className="touch-target h-11 justify-start border border-white/15 bg-white/5 hover:bg-white/15"
+                    className="touch-target h-11 justify-start border border-border bg-foreground/5 hover:bg-foreground/15"
                     onClick={() => {
                       exportData();
                       toast.success("已导出备份文件");
@@ -128,7 +128,7 @@ export function SettingsDialog({
                   </Button>
                   <Button
                     variant="ghost"
-                    className="touch-target h-11 justify-start border border-white/15 bg-white/5 hover:bg-white/15"
+                    className="touch-target h-11 justify-start border border-border bg-foreground/5 hover:bg-foreground/15"
                     onClick={() => setView("import")}
                   >
                     <Upload className="size-4" />
@@ -161,7 +161,7 @@ export function SettingsDialog({
                   desc="用文件内容完全替换现有数据"
                 />
               </div>
-              <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-white/25 bg-white/5 px-4 py-6 text-sm text-muted-foreground transition-colors hover:bg-white/10">
+              <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-foreground/25 bg-foreground/5 px-4 py-6 text-sm text-muted-foreground transition-colors hover:bg-foreground/10">
                 <input
                   type="file"
                   accept="application/json,.json"
@@ -184,7 +184,7 @@ export function SettingsDialog({
       </Dialog>
 
       <Dialog open={clearOpen} onOpenChange={setClearOpen}>
-        <DialogContent className="liquid-glass liquid-glass-strong border-white/20 sm:max-w-md">
+        <DialogContent className="liquid-glass liquid-glass-strong border-border sm:max-w-md">
           <DialogHeader>
             <DialogTitle>确认清空全部学习数据？</DialogTitle>
             <DialogDescription>
@@ -226,7 +226,7 @@ function StrategyOption({
         "rounded-xl border px-3 py-2.5 text-start transition-colors",
         selected
           ? "border-[var(--primary)]/70 bg-[var(--primary)]/15"
-          : "border-white/15 bg-white/5 hover:bg-white/10",
+          : "border-border bg-foreground/5 hover:bg-foreground/10",
       )}
     >
       <span className="block text-[14px] font-medium">{title}</span>

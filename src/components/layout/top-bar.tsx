@@ -49,24 +49,24 @@ export function TopBar() {
   return (
     <>
       <header className="liquid-glass liquid-glass-strong sticky top-0 z-40 rounded-none border-x-0 border-t-0 pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex h-14 w-full max-w-4xl items-center gap-1 px-3 md:px-6">
+        <div className="mx-auto flex h-14 w-full max-w-4xl items-center gap-1 px-3 md:h-16 md:px-6 lg:max-w-6xl lg:px-8">
           {back && (
             <Link
               href={back}
               aria-label="返回"
-              className="touch-target flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+              className="touch-target flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
             >
               <ChevronLeft className="size-5" />
             </Link>
           )}
-          <h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-wide">
+          <h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-wide md:text-base">
             {title}
           </h1>
           <button
             type="button"
             aria-label="设置"
             onClick={() => setSettingsOpen(true)}
-            className="touch-target flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+            className="touch-target flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
           >
             <Settings className="size-5" />
           </button>

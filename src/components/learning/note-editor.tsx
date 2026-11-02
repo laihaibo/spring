@@ -74,7 +74,7 @@ export function NoteEditor({ topicId, titlePrefix }: { topicId?: string; titlePr
   };
 
   return (
-    <div className="space-y-3">
+    <div className="mx-auto w-full max-w-3xl space-y-3">
       <div className="flex items-center justify-between gap-3">
         <span className="nums text-[13px] text-muted-foreground">{notes.length} 条笔记</span>
         <Button size="sm" className="touch-target h-10" onClick={startNew}>
@@ -92,10 +92,10 @@ export function NoteEditor({ topicId, titlePrefix }: { topicId?: string; titlePr
             placeholder="笔记标题"
             autoCapitalize="none"
             autoCorrect="off"
-            className="h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-[15px] outline-none placeholder:text-muted-foreground/60 focus:border-[var(--primary)]/60"
+            className="h-11 w-full rounded-xl border border-border bg-foreground/5 px-3 text-[15px] outline-none placeholder:text-muted-foreground/60 focus:border-[var(--primary)]/60"
           />
           {preview ? (
-            <div className="min-h-40 rounded-xl border border-white/15 bg-white/5 p-3">
+            <div className="min-h-40 rounded-xl border border-border bg-foreground/5 p-3">
               <MarkdownViewer content={draft.content || "_（空）_"} />
             </div>
           ) : (
@@ -107,14 +107,14 @@ export function NoteEditor({ topicId, titlePrefix }: { topicId?: string; titlePr
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full resize-y rounded-xl border border-white/15 bg-white/5 p-3 font-mono text-[13.5px] leading-relaxed outline-none placeholder:text-muted-foreground/60 focus:border-[var(--primary)]/60"
+              className="w-full resize-y rounded-xl border border-border bg-foreground/5 p-3 font-mono text-[13.5px] leading-relaxed outline-none placeholder:text-muted-foreground/60 focus:border-[var(--primary)]/60"
             />
           )}
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
               size="sm"
-              className="touch-target h-9 border border-white/15 bg-white/5"
+              className="touch-target h-9 border border-border bg-foreground/5"
               onClick={() => setPreview((p) => !p)}
             >
               {preview ? <Pencil className="size-3.5" /> : <Eye className="size-3.5" />}

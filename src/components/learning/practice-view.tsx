@@ -43,7 +43,7 @@ export function PracticeView() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto w-full max-w-3xl space-y-5">
       <p className="text-[13.5px] text-muted-foreground">
         答错的题自动进入错题本，7 天后间隔重现；答对即移出。
       </p>
@@ -138,7 +138,7 @@ function FilterChip({
         "touch-target rounded-full border px-3.5 py-2 text-[13px] transition-colors",
         active
           ? "border-[var(--primary)]/70 bg-[var(--primary)]/15 text-foreground"
-          : "border-white/15 bg-white/5 text-muted-foreground hover:bg-white/10",
+          : "border-border bg-foreground/5 text-muted-foreground hover:bg-foreground/10",
       )}
     >
       {children}

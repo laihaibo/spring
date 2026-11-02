@@ -45,7 +45,7 @@ export function CodeExampleCard({ example }: { example: CodeExample }) {
         <CodeBlockContent code={example.code} language={example.language} lineNumbers />
       </CodeBlock>
       {(example.summary || example.sourceNote) && (
-        <figcaption className="mt-2 flex flex-col gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-[13px] text-muted-foreground">
+        <figcaption className="mt-2 flex flex-col gap-1.5 rounded-lg bg-foreground/5 px-3 py-2 text-[13px] text-muted-foreground">
           {example.summary && (
             <span className="flex items-start gap-1.5">
               <Info className="mt-0.5 size-3.5 shrink-0" />
@@ -62,7 +62,7 @@ export function CodeExampleCard({ example }: { example: CodeExample }) {
       <button
         type="button"
         onClick={download}
-        className="touch-target mt-2 inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground"
+        className="touch-target mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border bg-foreground/5 px-3 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-foreground"
       >
         <Download className="size-3.5" />
         在本地试运行 · 下载 {example.runnableFileName}

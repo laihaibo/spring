@@ -25,7 +25,7 @@ export default async function TrackPage({ params }: PageProps) {
   const meta = TRACK_META[track as Track];
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 md:max-w-4xl md:py-8">
+    <main className="mx-auto w-full max-w-3xl px-4 py-6 md:max-w-4xl md:py-8 lg:max-w-6xl lg:px-8 lg:py-10">
       <p className="mb-5 text-[13.5px] text-muted-foreground">
         {meta.brief} · {topics.length > 0 ? `${topics.length} 个知识点` : "内容筹备中"}
       </p>

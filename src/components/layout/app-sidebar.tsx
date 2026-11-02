@@ -22,7 +22,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <Sidebar className="border-r border-white/10">
+    <Sidebar className="border-r border-border">
       <SidebarHeader className="flex-row items-center gap-2 px-4 py-4">
         <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/80 to-violet-500/80 shadow-[0_0_16px_rgba(99,102,241,0.5)]">
           <GraduationCap className="size-5 text-white" />
@@ -45,7 +45,7 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         asChild
                         isActive={active}
-                        className="touch-target data-active:bg-white/10 data-active:text-foreground"
+                        className="touch-target data-active:bg-foreground/10 data-active:text-foreground"
                       >
                         <Link href={item.href}>
                           <item.icon className="size-4" />

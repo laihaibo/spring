@@ -22,7 +22,7 @@ export function TopicCard({ topic, index }: { topic: Topic; index: number }) {
     <Link href={`/learn/${topic.track}/${topic.id}`} className="block">
       <LiquidGlassCard
         soft
-        className="group p-4 transition-transform duration-200 active:scale-[0.99] md:hover:scale-[1.01] md:hover:bg-white/12"
+        className="group p-4 transition-transform duration-200 active:scale-[0.99] md:hover:scale-[1.01] md:hover:bg-foreground/12"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -32,7 +32,7 @@ export function TopicCard({ topic, index }: { topic: Topic; index: number }) {
               </span>
               <Badge level={topic.level} />
               {review && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-300">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
                   <RefreshCcw className="size-3" />
                   待复习
                 </span>
@@ -45,7 +45,7 @@ export function TopicCard({ topic, index }: { topic: Topic; index: number }) {
         </div>
 
         <div className="mt-3 flex items-center gap-3">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/10">
             <div
               className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500 transition-[width] duration-500"
               style={{ width: `${mastery}%` }}
@@ -61,7 +61,7 @@ export function TopicCard({ topic, index }: { topic: Topic; index: number }) {
             {topic.tags.slice(0, 4).map((tag) => (
               <span
                 key={tag}
-                className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground"
+                className="rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] text-muted-foreground"
               >
                 {tag}
               </span>
@@ -78,9 +78,9 @@ function Badge({ level }: { level: Topic["level"] }) {
     <span
       className={cn(
         "rounded-full px-2 py-0.5 text-[11px] font-medium",
-        level === 1 && "bg-emerald-400/15 text-emerald-300",
-        level === 2 && "bg-sky-400/15 text-sky-300",
-        level === 3 && "bg-fuchsia-400/15 text-fuchsia-300",
+        level === 1 && "bg-emerald-400/15 text-emerald-600 dark:text-emerald-300",
+        level === 2 && "bg-sky-400/15 text-sky-700 dark:text-sky-300",
+        level === 3 && "bg-fuchsia-400/15 text-fuchsia-700 dark:text-fuchsia-300",
       )}
     >
       {LEVEL_LABEL[level]}

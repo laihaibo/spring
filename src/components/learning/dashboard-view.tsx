@@ -47,7 +47,7 @@ export function DashboardView() {
       <section className="grid gap-3 md:grid-cols-2">
         <LiquidGlassCard soft className="p-4">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-            <RefreshCcw className="size-4 text-amber-300" />
+            <RefreshCcw className="size-4 text-amber-600 dark:text-amber-300" />
             复习队列
           </h2>
           {reviewTopicIds.length === 0 && dueIds.length === 0 ? (
@@ -99,7 +99,7 @@ export function DashboardView() {
           {nextTopic && (
             <Link
               href={`/learn/${nextTopic.track}/${nextTopic.id}`}
-              className="touch-target mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/80 to-violet-500/80 px-4 text-[14px] font-medium text-white shadow-[0_0_20px_rgba(99,102,241,0.35)] transition-opacity hover:opacity-90"
+              className="touch-target mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-violet-600 px-4 text-[14px] font-medium text-white shadow-[0_0_20px_rgba(99,102,241,0.35)] transition-opacity hover:opacity-90 dark:from-cyan-500/80 dark:to-violet-500/80"
             >
               开始这一讲
               <ArrowRight className="size-4" />
@@ -150,7 +150,7 @@ function ReviewChip({ topicId }: { topicId: string }) {
   return (
     <Link
       href={`/learn/${topic.track}/${topic.id}`}
-      className="rounded-full border border-amber-300/40 bg-amber-300/10 px-3 py-1.5 text-[13px] text-amber-200 transition-colors hover:bg-amber-300/20"
+      className="rounded-full border border-amber-600/40 bg-amber-300/10 px-3 py-1.5 text-[13px] text-amber-700 transition-colors hover:bg-amber-300/20 dark:border-amber-300/40 dark:text-amber-200"
     >
       {topic.title}
     </Link>
